@@ -10,6 +10,7 @@ NAME = "Dutch Energy Prices"
 PLATFORMS = ["sensor"]
 
 CONF_PRICE_SOURCE = "price_source"
+CONF_ENTSOE_API_TOKEN = "entsoe_api_token"
 CONF_SOURCE_ENTITY = "source_entity"
 CONF_SOURCE_PRICE_UNIT = "source_price_unit"
 CONF_TAX_PROFILE = "tax_profile"
@@ -35,6 +36,7 @@ PERIOD_MINUTES = 15
 class PriceSource(StrEnum):
     """Supported price sources."""
 
+    ENTSOE = "entsoe"
     HOME_ASSISTANT_ENTITY = "home_assistant_entity"
 
 

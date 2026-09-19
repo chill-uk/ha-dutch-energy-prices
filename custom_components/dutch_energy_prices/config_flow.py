@@ -15,6 +15,7 @@ from .const import (
     CONF_BATTERY_EFFICIENCY,
     CONF_CURRENCY_DISPLAY,
     CONF_ENERGY_TAX,
+    CONF_ENTSOE_API_TOKEN,
     CONF_PRICE_SOURCE,
     CONF_SOURCE_ENTITY,
     CONF_SOURCE_PRICE_UNIT,
@@ -48,23 +49,43 @@ def _number(default: Decimal, *, minimum: float | None = None, maximum: float | 
     return selector.NumberSelector(selector.NumberSelectorConfig(**config))
 
 
-def _details_schema(profile: TaxProfile, values: dict[str, Any] | None = None) -> vol.Schema:
+def _details_schema(
+    profile: TaxProfile,
+    source: PriceSource,
+    values: dict[str, Any] | None = None,
+) -> vol.Schema:
     values = values or {}
     profile_defaults = TAX_PROFILE_DEFAULTS[profile]
-    return vol.Schema(
+    fields: dict[Any, Any] = {}
+    if source is PriceSource.ENTSOE:
+        token_key = (
+            vol.Required(CONF_ENTSOE_API_TOKEN, default=values[CONF_ENTSOE_API_TOKEN])
+            if values.get(CONF_ENTSOE_API_TOKEN)
+            else vol.Required(CONF_ENTSOE_API_TOKEN)
+        )
+        fields[token_key] = selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+        )
+    else:
+        fields.update(
+            {
+                vol.Required(
+                    CONF_SOURCE_ENTITY, default=values.get(CONF_SOURCE_ENTITY)
+                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+                vol.Required(
+                    CONF_SOURCE_PRICE_UNIT,
+                    default=values.get(CONF_SOURCE_PRICE_UNIT, SourcePriceUnit.EUR_PER_KWH),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[unit.value for unit in SourcePriceUnit],
+                        translation_key="source_price_unit",
+                    )
+                ),
+            }
+        )
+
+    fields.update(
         {
-            vol.Required(
-                CONF_SOURCE_ENTITY, default=values.get(CONF_SOURCE_ENTITY)
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Required(
-                CONF_SOURCE_PRICE_UNIT,
-                default=values.get(CONF_SOURCE_PRICE_UNIT, SourcePriceUnit.EUR_PER_KWH),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[unit.value for unit in SourcePriceUnit],
-                    translation_key="source_price_unit",
-                )
-            ),
             vol.Required(
                 CONF_VAT_PERCENTAGE,
                 default=values.get(
@@ -107,6 +128,7 @@ def _details_schema(profile: TaxProfile, values: dict[str, Any] | None = None) -
             ): selector.BooleanSelector(),
         }
     )
+    return vol.Schema(fields)
 
 
 class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -129,7 +151,7 @@ class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_PRICE_SOURCE, default=PriceSource.HOME_ASSISTANT_ENTITY
+                        CONF_PRICE_SOURCE, default=PriceSource.ENTSOE
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[source.value for source in PriceSource],
@@ -163,7 +185,8 @@ class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_create_entry(title="Dutch Energy", data={**self._base, **user_input})
         profile = TaxProfile(self._base[CONF_TAX_PROFILE])
-        return self.async_show_form(step_id="details", data_schema=_details_schema(profile))
+        source = PriceSource(self._base[CONF_PRICE_SOURCE])
+        return self.async_show_form(step_id="details", data_schema=_details_schema(profile, source))
 
     @staticmethod
     @callback
@@ -177,27 +200,58 @@ class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class DutchEnergyPricesOptionsFlow(config_entries.OptionsFlow):
     """Edit all values without recreating the entry."""
 
+    def __init__(self) -> None:
+        self._base: dict[str, Any] = {}
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Choose source and display/profile settings before source-specific details."""
+        if user_input is not None:
+            self._base = user_input
+            return await self.async_step_details()
+        current = {**self.config_entry.data, **self.config_entry.options}
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_PRICE_SOURCE, default=current[CONF_PRICE_SOURCE]
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[source.value for source in PriceSource],
+                            translation_key="price_source",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_TAX_PROFILE, default=current[CONF_TAX_PROFILE]
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[item.value for item in TaxProfile],
+                            translation_key="tax_profile",
+                        )
+                    ),
+                    vol.Required(
+                        CONF_CURRENCY_DISPLAY,
+                        default=current[CONF_CURRENCY_DISPLAY],
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[item.value for item in CurrencyDisplay],
+                            translation_key="currency_display",
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_details(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Edit source credentials and price components."""
         current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-        profile = TaxProfile(current[CONF_TAX_PROFILE])
-        schema = _details_schema(profile, current).extend(
-            {
-                vol.Required(CONF_TAX_PROFILE, default=profile): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[item.value for item in TaxProfile], translation_key="tax_profile"
-                    )
-                ),
-                vol.Required(
-                    CONF_CURRENCY_DISPLAY,
-                    default=current[CONF_CURRENCY_DISPLAY],
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[item.value for item in CurrencyDisplay],
-                        translation_key="currency_display",
-                    )
-                ),
-            }
+            return self.async_create_entry(title="", data={**self._base, **user_input})
+        profile = TaxProfile(self._base[CONF_TAX_PROFILE])
+        source = PriceSource(self._base[CONF_PRICE_SOURCE])
+        return self.async_show_form(
+            step_id="details",
+            data_schema=_details_schema(profile, source, current),
         )
-        return self.async_show_form(step_id="init", data_schema=schema)

@@ -4,7 +4,8 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 
 ## v0.1 scope
 
-- Consumes native 15-minute prices from an existing Home Assistant sensor.
+- Retrieves Dutch day-ahead prices directly from ENTSO-E or consumes native
+  15-minute prices from an existing Home Assistant sensor.
 - Keeps all monetary values internally as `Decimal` EUR/kWh.
 - Calculates raw market, all-in import, export, energy-tax and import/export-spread sensors.
 - Finds the cheapest contiguous 15-minute, 1-hour and 2-hour windows without hourly aggregation.
@@ -14,7 +15,21 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 
 The fixed annual energy-tax rebate is deliberately excluded because it does not alter the marginal cost of charging one additional kWh.
 
-## Source entity contract
+## ENTSO-E source
+
+The recommended source retrieves today and tomorrow directly from the ENTSO-E
+Transparency Platform. Create an ENTSO-E account, request REST API access, and
+enter the resulting security token during setup. The integration queries the
+Netherlands bidding zone (`10YNL----------L`) and accepts only native `PT15M`
+prices in EUR/MWh. Values are converted to EUR/kWh before any Dutch tax or
+supplier calculations are applied.
+
+Tomorrow's prices are not real-time quotes: they appear after the day-ahead
+auction publishes them. Before that publication, the current day's periods
+remain available. Negative prices and 23/25-hour daylight-saving days are
+handled without hourly expansion.
+
+## Home Assistant entity source
 
 The selected sensor must expose either a `prices` list, or `today` and `tomorrow` lists. Each list item must contain a timezone-aware start, a numeric market price, and optionally an end. Missing ends are derived as start + 15 minutes.
 
@@ -46,7 +61,8 @@ The 2026 profile uses the household electricity energy-tax rate of **€0.09161/
 2. Install **Dutch Energy Prices**.
 3. Restart Home Assistant.
 4. Go to **Settings → Devices & services → Add integration**.
-5. Select **Dutch Energy Prices** and choose a compatible 15-minute source sensor.
+5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
+   15-minute source sensor.
 
 ### Manual
 
@@ -70,7 +86,7 @@ Home Assistant may append a suffix if one of these entity IDs already exists.
 
 v0.2 will expose the already-modelled battery economics: effective charged-energy cost, best charge/discharge periods, grid-arbitrage value, solar opportunity cost and configurable optimisation duration. It will not control a battery until a later, separately reviewed phase.
 
-Future providers can implement `PriceProvider` without changing Dutch pricing logic. Planned candidates include direct Dutch market retrieval, ENTSO-E, Nord Pool and supplier adapters.
+Future providers can implement `PriceProvider` without changing Dutch pricing logic. Planned candidates include Nord Pool and supplier adapters.
 
 ## Development
 

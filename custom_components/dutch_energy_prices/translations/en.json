@@ -11,7 +11,7 @@
         "title": "Price components",
         "description": "Amounts are in EUR/kWh and are stored without rounding. The Netherlands 2027 energy-tax default is provisional and must be checked against the final statutory rate.",
         "data": {
-          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
+          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "entsoe_api_token": "ENTSO-E API token", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
         }
       }
     },
@@ -22,13 +22,20 @@
       "init": {
         "title": "Dutch Energy Prices options",
         "data": {
-          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "tax_profile": "Netherlands tax profile", "currency_display": "Currency display", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
+          "price_source": "Price source", "tax_profile": "Netherlands tax profile", "currency_display": "Currency display"
+        }
+      },
+      "details": {
+        "title": "Price components",
+        "description": "Change source credentials and editable amounts. Amounts are in EUR/kWh.",
+        "data": {
+          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "entsoe_api_token": "ENTSO-E API token", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
         }
       }
     }
   },
   "selector": {
-    "price_source": {"options": {"home_assistant_entity": "Home Assistant price entity"}},
+    "price_source": {"options": {"entsoe": "ENTSO-E", "home_assistant_entity": "Home Assistant price entity"}},
     "tax_profile": {"options": {"netherlands_2027": "Netherlands 2027", "netherlands_2026": "Netherlands 2026", "custom": "Custom"}},
     "currency_display": {"options": {"eur_per_kwh": "€/kWh", "cent_per_kwh": "ct/kWh"}},
     "source_price_unit": {"options": {"eur_per_kwh": "€/kWh", "eur_per_mwh": "€/MWh"}}
