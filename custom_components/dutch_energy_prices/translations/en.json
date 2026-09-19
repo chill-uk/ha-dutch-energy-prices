@@ -1,0 +1,37 @@
+{
+  "title": "Dutch Energy Prices",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Dutch Energy Prices",
+        "description": "Choose the native 15-minute source and a starting tax profile. All tax values remain editable.",
+        "data": {"price_source": "Price source", "tax_profile": "Netherlands tax profile", "currency_display": "Currency display"}
+      },
+      "details": {
+        "title": "Price components",
+        "description": "Amounts are in EUR/kWh and are stored without rounding. The Netherlands 2027 energy-tax default is provisional and must be checked against the final statutory rate.",
+        "data": {
+          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
+        }
+      }
+    },
+    "abort": {"single_instance_allowed": "Only one Dutch Energy Prices instance is supported."}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Dutch Energy Prices options",
+        "data": {
+          "source_entity": "Source price entity", "source_price_unit": "Source price unit", "tax_profile": "Netherlands tax profile", "currency_display": "Currency display", "vat_percentage": "VAT percentage", "energy_tax": "Energy tax", "supplier_import_markup": "Supplier import markup", "supplier_export_adjustment": "Supplier export adjustment", "battery_round_trip_efficiency": "Battery round-trip efficiency", "vat_market_import": "Apply VAT to imported market price", "vat_import_markup": "Apply VAT to import markup", "vat_energy_tax": "Apply VAT to energy tax", "vat_market_export": "Apply VAT to exported market price", "vat_export_adjustment": "Apply VAT to export adjustment"
+        }
+      }
+    }
+  },
+  "selector": {
+    "price_source": {"options": {"home_assistant_entity": "Home Assistant price entity"}},
+    "tax_profile": {"options": {"netherlands_2027": "Netherlands 2027", "netherlands_2026": "Netherlands 2026", "custom": "Custom"}},
+    "currency_display": {"options": {"eur_per_kwh": "€/kWh", "cent_per_kwh": "ct/kWh"}},
+    "source_price_unit": {"options": {"eur_per_kwh": "€/kWh", "eur_per_mwh": "€/MWh"}}
+  },
+  "entity": {"sensor": {"market_price": {"name": "Market price"}, "import_price": {"name": "Import price"}, "export_price": {"name": "Export price"}, "energy_tax": {"name": "Energy tax"}, "vat": {"name": "VAT"}, "cheapest_slot": {"name": "Cheapest slot"}, "cheapest_1h": {"name": "Cheapest 1h"}, "cheapest_2h": {"name": "Cheapest 2h"}, "import_export_spread": {"name": "Import export spread"}}}
+}
