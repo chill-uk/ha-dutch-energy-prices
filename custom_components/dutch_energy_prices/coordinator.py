@@ -60,6 +60,7 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
     from .const import (
         CONF_BATTERY_EFFICIENCY,
         CONF_ENERGY_TAX,
+        CONF_OPTIMIZATION_DURATION,
         CONF_SUPPLIER_EXPORT_ADJUSTMENT,
         CONF_SUPPLIER_IMPORT_MARKUP,
         CONF_VAT_ENERGY_TAX,
@@ -68,6 +69,7 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         CONF_VAT_MARKET_EXPORT,
         CONF_VAT_MARKET_IMPORT,
         CONF_VAT_PERCENTAGE,
+        DEFAULT_OPTIMIZATION_DURATION_MINUTES,
     )
 
     return PriceSettings(
@@ -76,6 +78,9 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         supplier_import_markup=Decimal(str(config[CONF_SUPPLIER_IMPORT_MARKUP])),
         supplier_export_adjustment=Decimal(str(config[CONF_SUPPLIER_EXPORT_ADJUSTMENT])),
         battery_round_trip_efficiency=Decimal(str(config[CONF_BATTERY_EFFICIENCY])),
+        optimization_duration_minutes=int(
+            config.get(CONF_OPTIMIZATION_DURATION, DEFAULT_OPTIMIZATION_DURATION_MINUTES)
+        ),
         vat_market_import=bool(config[CONF_VAT_MARKET_IMPORT]),
         vat_import_markup=bool(config[CONF_VAT_IMPORT_MARKUP]),
         vat_energy_tax=bool(config[CONF_VAT_ENERGY_TAX]),

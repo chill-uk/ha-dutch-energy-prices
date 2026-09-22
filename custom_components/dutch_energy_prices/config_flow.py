@@ -16,6 +16,7 @@ from .const import (
     CONF_CURRENCY_DISPLAY,
     CONF_ENERGY_TAX,
     CONF_ENTSOE_API_TOKEN,
+    CONF_OPTIMIZATION_DURATION,
     CONF_PRICE_SOURCE,
     CONF_SOURCE_ENTITY,
     CONF_SOURCE_PRICE_UNIT,
@@ -31,6 +32,7 @@ from .const import (
     DEFAULT_BATTERY_EFFICIENCY,
     DEFAULT_EXPORT_ADJUSTMENT,
     DEFAULT_IMPORT_MARKUP,
+    DEFAULT_OPTIMIZATION_DURATION_MINUTES,
     DOMAIN,
     TAX_PROFILE_DEFAULTS,
     CurrencyDisplay,
@@ -110,6 +112,20 @@ def _details_schema(
                 CONF_BATTERY_EFFICIENCY,
                 default=values.get(CONF_BATTERY_EFFICIENCY, float(DEFAULT_BATTERY_EFFICIENCY)),
             ): _number(DEFAULT_BATTERY_EFFICIENCY, minimum=0.01, maximum=1),
+            vol.Required(
+                CONF_OPTIMIZATION_DURATION,
+                default=values.get(
+                    CONF_OPTIMIZATION_DURATION, DEFAULT_OPTIMIZATION_DURATION_MINUTES
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=15,
+                    max=1440,
+                    step=15,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="min",
+                )
+            ),
             vol.Required(
                 CONF_VAT_MARKET_IMPORT, default=values.get(CONF_VAT_MARKET_IMPORT, True)
             ): selector.BooleanSelector(),

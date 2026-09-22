@@ -3,7 +3,9 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from custom_components.dutch_energy_prices.models import PricePeriod
+import pytest
+
+from custom_components.dutch_energy_prices.models import PricePeriod, PriceSettings
 
 
 def test_period_attribute_shape() -> None:
@@ -25,3 +27,15 @@ def test_period_attribute_shape() -> None:
         "import_vat": "0",
         "export_vat": "0",
     }
+
+
+@pytest.mark.parametrize("duration", [0, 14, 16, 121])
+def test_optimization_duration_requires_quarter_hour_increments(duration: int) -> None:
+    with pytest.raises(ValueError, match="Optimisation duration"):
+        PriceSettings(
+            vat_percentage=Decimal("21"),
+            energy_tax=Decimal("0.1"),
+            supplier_import_markup=Decimal("0"),
+            supplier_export_adjustment=Decimal("0"),
+            optimization_duration_minutes=duration,
+        )

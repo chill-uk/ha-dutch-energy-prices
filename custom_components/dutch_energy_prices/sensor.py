@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -21,7 +21,13 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .calculations import cheapest_window, current_period
+from .calculations import (
+    best_battery_arbitrage,
+    best_solar_storage,
+    cheapest_window,
+    current_period,
+    effective_battery_cost,
+)
 from .const import (
     ATTR_PRICES_TODAY,
     ATTR_PRICES_TOMORROW,
@@ -33,7 +39,12 @@ from .const import (
     CurrencyDisplay,
 )
 from .coordinator import DutchEnergyPricesCoordinator
-from .models import PricePeriod
+from .models import (
+    BatteryArbitrageOpportunity,
+    PricePeriod,
+    PriceWindow,
+    SolarStorageOpportunity,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -82,6 +93,14 @@ SENSOR_DESCRIPTIONS = (
         suggested_display_precision=5,
         value_fn=lambda period, coordinator: period.import_price - period.export_price,
     ),
+    DutchPriceSensorDescription(
+        key="effective_battery_cost",
+        translation_key="effective_battery_cost",
+        suggested_display_precision=5,
+        value_fn=lambda period, coordinator: effective_battery_cost(
+            period.import_price, coordinator.settings.battery_round_trip_efficiency
+        ),
+    ),
 )
 
 
@@ -109,6 +128,14 @@ async def async_setup_entry(
             DutchCheapestWindowSensor(coordinator, entry, "cheapest_slot", 1, currency),
             DutchCheapestWindowSensor(coordinator, entry, "cheapest_1h", 4, currency),
             DutchCheapestWindowSensor(coordinator, entry, "cheapest_2h", 8, currency),
+            DutchBatteryWindowSensor(
+                coordinator, entry, "best_battery_charge_period", "charge", currency
+            ),
+            DutchBatteryWindowSensor(
+                coordinator, entry, "best_battery_discharge_period", "discharge", currency
+            ),
+            DutchArbitrageValueSensor(coordinator, entry, currency),
+            DutchSolarStorageValueSensor(coordinator, entry, currency),
         ]
     )
 
@@ -192,13 +219,13 @@ class DutchCheapestWindowSensor(DutchEnergyBaseSensor):
         self._currency = currency
 
     @property
-    def _window(self):
+    def _window(self) -> PriceWindow | None:
         return cheapest_window(
             self.coordinator.data.periods, self._slots, not_before=dt_util.utcnow()
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> datetime | None:
         window = self._window
         return window.start if window is not None else None
 
@@ -219,4 +246,199 @@ class DutchCheapestWindowSensor(DutchEnergyBaseSensor):
                 else UNIT_CENT_PER_KWH
             ),
             "slots": self._slots,
+        }
+
+
+def _display_price(value: Decimal, currency: CurrencyDisplay) -> Decimal:
+    """Convert an internal EUR/kWh amount to the selected display unit."""
+    return value if currency is CurrencyDisplay.EUR_PER_KWH else value * Decimal("100")
+
+
+def _price_unit(currency: CurrencyDisplay) -> str:
+    """Return the configured monetary display unit."""
+    return UNIT_EUR_PER_KWH if currency is CurrencyDisplay.EUR_PER_KWH else UNIT_CENT_PER_KWH
+
+
+class DutchBatteryWindowSensor(DutchEnergyBaseSensor):
+    """Expose one side of the best ordered battery-arbitrage opportunity."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: DutchEnergyPricesCoordinator,
+        entry: ConfigEntry,
+        key: str,
+        window_kind: Literal["charge", "discharge"],
+        currency: CurrencyDisplay,
+    ) -> None:
+        super().__init__(coordinator, entry, key)
+        self._attr_translation_key = key
+        self._window_kind = window_kind
+        self._currency = currency
+
+    @property
+    def _opportunity(self) -> BatteryArbitrageOpportunity | None:
+        settings = self.coordinator.settings
+        return best_battery_arbitrage(
+            self.coordinator.data.periods,
+            settings.optimization_duration_minutes // 15,
+            settings.battery_round_trip_efficiency,
+            not_before=dt_util.utcnow(),
+        )
+
+    @property
+    def native_value(self) -> datetime | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        window = (
+            opportunity.charge_window
+            if self._window_kind == "charge"
+            else opportunity.discharge_window
+        )
+        return window.start
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        window = (
+            opportunity.charge_window
+            if self._window_kind == "charge"
+            else opportunity.discharge_window
+        )
+        paired_window = (
+            opportunity.discharge_window
+            if self._window_kind == "charge"
+            else opportunity.charge_window
+        )
+        return {
+            "end": window.end.isoformat(),
+            "duration_minutes": self.coordinator.settings.optimization_duration_minutes,
+            "average_import_price": str(
+                _display_price(window.average_import_price, self._currency)
+            ),
+            "paired_period_start": paired_window.start.isoformat(),
+            "paired_period_end": paired_window.end.isoformat(),
+            "estimated_arbitrage_value": str(
+                _display_price(opportunity.profit_per_kwh, self._currency)
+            ),
+            "profitable": opportunity.profit_per_kwh > 0,
+            "price_unit": _price_unit(self._currency),
+        }
+
+
+class DutchArbitrageValueSensor(DutchEnergyBaseSensor):
+    """Expose the best forecast grid-arbitrage value per delivered kWh."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 5
+
+    def __init__(
+        self,
+        coordinator: DutchEnergyPricesCoordinator,
+        entry: ConfigEntry,
+        currency: CurrencyDisplay,
+    ) -> None:
+        super().__init__(coordinator, entry, "estimated_arbitrage_value")
+        self._attr_translation_key = "estimated_arbitrage_value"
+        self._currency = currency
+        self._attr_native_unit_of_measurement = _price_unit(currency)
+
+    @property
+    def _opportunity(self) -> BatteryArbitrageOpportunity | None:
+        settings = self.coordinator.settings
+        return best_battery_arbitrage(
+            self.coordinator.data.periods,
+            settings.optimization_duration_minutes // 15,
+            settings.battery_round_trip_efficiency,
+            not_before=dt_util.utcnow(),
+        )
+
+    @property
+    def native_value(self) -> Decimal | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        return _display_price(opportunity.profit_per_kwh, self._currency)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        return {
+            "charge_start": opportunity.charge_window.start.isoformat(),
+            "charge_end": opportunity.charge_window.end.isoformat(),
+            "discharge_start": opportunity.discharge_window.start.isoformat(),
+            "discharge_end": opportunity.discharge_window.end.isoformat(),
+            "duration_minutes": self.coordinator.settings.optimization_duration_minutes,
+            "average_charge_import_price": str(
+                _display_price(opportunity.charge_window.average_import_price, self._currency)
+            ),
+            "effective_charge_cost": str(
+                _display_price(opportunity.effective_charge_cost, self._currency)
+            ),
+            "average_discharge_import_price": str(
+                _display_price(opportunity.discharge_window.average_import_price, self._currency)
+            ),
+            "round_trip_efficiency": str(self.coordinator.settings.battery_round_trip_efficiency),
+            "profitable": opportunity.profit_per_kwh > 0,
+        }
+
+
+class DutchSolarStorageValueSensor(DutchEnergyBaseSensor):
+    """Expose the value of storing current solar surplus instead of exporting it."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 5
+
+    def __init__(
+        self,
+        coordinator: DutchEnergyPricesCoordinator,
+        entry: ConfigEntry,
+        currency: CurrencyDisplay,
+    ) -> None:
+        super().__init__(coordinator, entry, "solar_storage_value")
+        self._attr_translation_key = "solar_storage_value"
+        self._currency = currency
+        self._attr_native_unit_of_measurement = _price_unit(currency)
+
+    @property
+    def _opportunity(self) -> SolarStorageOpportunity | None:
+        settings = self.coordinator.settings
+        return best_solar_storage(
+            self.coordinator.data.periods,
+            settings.optimization_duration_minutes // 15,
+            settings.battery_round_trip_efficiency,
+            now=dt_util.utcnow(),
+        )
+
+    @property
+    def native_value(self) -> Decimal | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        return _display_price(opportunity.value_per_kwh, self._currency)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        opportunity = self._opportunity
+        if opportunity is None:
+            return None
+        return {
+            "current_export_price": str(
+                _display_price(opportunity.current_period.export_price, self._currency)
+            ),
+            "future_import_price": str(
+                _display_price(opportunity.discharge_window.average_import_price, self._currency)
+            ),
+            "best_use_start": opportunity.discharge_window.start.isoformat(),
+            "best_use_end": opportunity.discharge_window.end.isoformat(),
+            "duration_minutes": self.coordinator.settings.optimization_duration_minutes,
+            "round_trip_efficiency": str(self.coordinator.settings.battery_round_trip_efficiency),
+            "worth_storing": opportunity.value_per_kwh > 0,
+            "price_unit": _price_unit(self._currency),
         }

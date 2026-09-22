@@ -6,6 +6,8 @@ from decimal import Decimal
 import pytest
 
 from custom_components.dutch_energy_prices.calculations import (
+    best_battery_arbitrage,
+    best_solar_storage,
     calculate_period,
     calculate_periods,
     cheapest_window,
@@ -134,6 +136,93 @@ def test_battery_economics_are_ready_for_v02() -> None:
     assert effective_battery_cost(Decimal("0.16"), efficiency) == Decimal("0.2")
     assert grid_arbitrage_profit(Decimal("0.16"), Decimal("0.30"), efficiency) == Decimal("0.10")
     assert solar_storage_value(Decimal("0.05"), Decimal("0.30"), efficiency) == Decimal("0.190")
+
+
+def test_best_battery_arbitrage_uses_ordered_contiguous_windows() -> None:
+    prices = ["0.10", "0.10", "0.20", "0.20", "0.50", "0.50"]
+    periods = tuple(
+        calculate_period(
+            raw_period(price, index * 15),
+            settings(
+                vat_percentage=Decimal("0"),
+                energy_tax=Decimal("0"),
+                supplier_import_markup=Decimal("0"),
+            ),
+        )
+        for index, price in enumerate(prices)
+    )
+
+    opportunity = best_battery_arbitrage(periods, 2, Decimal("0.8"))
+
+    assert opportunity is not None
+    assert opportunity.charge_window.start == periods[0].start
+    assert opportunity.charge_window.end == periods[1].end
+    assert opportunity.discharge_window.start == periods[4].start
+    assert opportunity.discharge_window.end == periods[5].end
+    assert opportunity.effective_charge_cost == Decimal("0.125")
+    assert opportunity.profit_per_kwh == Decimal("0.375")
+
+
+def test_best_battery_arbitrage_reports_negative_best_value() -> None:
+    prices = ["0.50", "0.50", "0.10", "0.10"]
+    periods = tuple(
+        calculate_period(
+            raw_period(price, index * 15),
+            settings(
+                vat_percentage=Decimal("0"),
+                energy_tax=Decimal("0"),
+                supplier_import_markup=Decimal("0"),
+            ),
+        )
+        for index, price in enumerate(prices)
+    )
+
+    opportunity = best_battery_arbitrage(periods, 2, Decimal("0.8"))
+
+    assert opportunity is not None
+    assert opportunity.charge_window.start == periods[0].start
+    assert opportunity.discharge_window.start == periods[2].start
+    assert opportunity.profit_per_kwh == Decimal("-0.525")
+
+
+def test_best_battery_arbitrage_does_not_cross_data_gap() -> None:
+    periods = (
+        calculate_period(raw_period("0.10", 0), settings()),
+        calculate_period(raw_period("0.10", 15), settings()),
+        calculate_period(raw_period("0.50", 45), settings()),
+        calculate_period(raw_period("0.50", 60), settings()),
+    )
+
+    assert best_battery_arbitrage(periods, 2, Decimal("0.8")) is not None
+    assert best_battery_arbitrage(periods, 3, Decimal("0.8")) is None
+
+
+def test_best_solar_storage_compares_current_export_with_later_avoided_import() -> None:
+    prices = ["0.05", "0.10", "0.30", "0.30"]
+    periods = tuple(
+        calculate_period(
+            raw_period(price, index * 15),
+            settings(
+                vat_percentage=Decimal("0"),
+                energy_tax=Decimal("0"),
+                supplier_import_markup=Decimal("0"),
+                supplier_export_adjustment=Decimal("0"),
+            ),
+        )
+        for index, price in enumerate(prices)
+    )
+
+    opportunity = best_solar_storage(
+        periods,
+        2,
+        Decimal("0.8"),
+        now=periods[0].start + timedelta(minutes=5),
+    )
+
+    assert opportunity is not None
+    assert opportunity.current_period == periods[0]
+    assert opportunity.discharge_window.start == periods[2].start
+    assert opportunity.value_per_kwh == Decimal("0.190")
 
 
 @pytest.mark.parametrize("efficiency", [Decimal("0"), Decimal("-0.1"), Decimal("1.01")])

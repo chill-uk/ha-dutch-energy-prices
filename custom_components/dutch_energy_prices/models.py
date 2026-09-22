@@ -65,6 +65,7 @@ class PriceSettings:
     supplier_import_markup: Decimal
     supplier_export_adjustment: Decimal
     battery_round_trip_efficiency: Decimal = Decimal("0.85")
+    optimization_duration_minutes: int = 120
     vat_market_import: bool = True
     vat_import_markup: bool = True
     vat_energy_tax: bool = True
@@ -76,6 +77,10 @@ class PriceSettings:
             raise ValueError("VAT percentage cannot be negative")
         if not Decimal("0") < self.battery_round_trip_efficiency <= Decimal("1"):
             raise ValueError("Battery round-trip efficiency must be above 0 and at most 1")
+        if self.optimization_duration_minutes < 15:
+            raise ValueError("Optimisation duration must be at least 15 minutes")
+        if self.optimization_duration_minutes % 15:
+            raise ValueError("Optimisation duration must use 15-minute increments")
 
     @property
     def vat_multiplier(self) -> Decimal:
@@ -99,3 +104,22 @@ class PriceWindow:
     end: datetime
     periods: tuple[PricePeriod, ...]
     average_import_price: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class BatteryArbitrageOpportunity:
+    """The best ordered grid-charge and later-discharge window pair."""
+
+    charge_window: PriceWindow
+    discharge_window: PriceWindow
+    effective_charge_cost: Decimal
+    profit_per_kwh: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SolarStorageOpportunity:
+    """Value of storing current solar surplus for a later window."""
+
+    current_period: PricePeriod
+    discharge_window: PriceWindow
+    value_per_kwh: Decimal

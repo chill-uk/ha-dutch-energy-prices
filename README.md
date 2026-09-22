@@ -2,7 +2,7 @@
 
 A Home Assistant custom integration for Dutch dynamic electricity contracts, designed around native **15-minute** prices and the post-saldering market from 2027 onward.
 
-## v0.1 scope
+## Features
 
 - Retrieves Dutch day-ahead prices directly from ENTSO-E or consumes native
   15-minute prices from an existing Home Assistant sensor.
@@ -12,6 +12,10 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 - Exposes today and tomorrow on the market-price sensor only, avoiding duplicate large attributes.
 - Provides editable Netherlands 2026, provisional Netherlands 2027 and custom tax profiles.
 - Includes diagnostics, translations, tests, Ruff and HACS metadata.
+- Calculates battery losses, the best ordered charge/discharge windows, expected
+  grid-arbitrage value and the value of storing solar instead of exporting it.
+- Supports an editable optimisation duration from 15 minutes to 24 hours in
+  native 15-minute increments.
 
 The fixed annual energy-tax rebate is deliberately excluded because it does not alter the marginal cost of charging one additional kWh.
 
@@ -84,12 +88,40 @@ Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_co
 - `sensor.dutch_energy_cheapest_1h`
 - `sensor.dutch_energy_cheapest_2h`
 - `sensor.dutch_energy_import_export_spread`
+- `sensor.dutch_energy_effective_battery_cost`
+- `sensor.dutch_energy_best_battery_charge_period`
+- `sensor.dutch_energy_best_battery_discharge_period`
+- `sensor.dutch_energy_estimated_arbitrage_value`
+- `sensor.dutch_energy_solar_storage_value`
 
 Home Assistant may append a suffix if one of these entity IDs already exists.
 
-## Roadmap
+## Battery economics
 
-v0.2 will expose the already-modelled battery economics: effective charged-energy cost, best charge/discharge periods, grid-arbitrage value, solar opportunity cost and configurable optimisation duration. It will not control a battery until a later, separately reviewed phase.
+The configured optimisation duration is applied to equal-length, contiguous
+charge and discharge windows. The integration considers only ordered pairs: the
+charge window must finish before the discharge window starts. It then maximises:
+
+```text
+arbitrage value = later average import price
+                  - charge average import price / round-trip efficiency
+```
+
+The effective battery cost sensor applies the same efficiency loss to the
+current import price. Solar storage value compares exporting one kWh now with
+storing it for the most valuable later usage window:
+
+```text
+solar storage value = later average import price × round-trip efficiency
+                      - current export price
+```
+
+Values may be negative. The opportunity sensors expose `profitable` or
+`worth_storing` attributes so an automation can distinguish a recommendation
+from the least-bad unprofitable window. Calculations use the currently available
+day-ahead forecast and do not control a battery.
+
+## Roadmap
 
 Future providers can implement `PriceProvider` without changing Dutch pricing logic. Planned candidates include Nord Pool and supplier adapters.
 

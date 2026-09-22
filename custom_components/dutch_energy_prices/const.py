@@ -19,6 +19,7 @@ CONF_ENERGY_TAX = "energy_tax"
 CONF_SUPPLIER_IMPORT_MARKUP = "supplier_import_markup"
 CONF_SUPPLIER_EXPORT_ADJUSTMENT = "supplier_export_adjustment"
 CONF_BATTERY_EFFICIENCY = "battery_round_trip_efficiency"
+CONF_OPTIMIZATION_DURATION = "optimization_duration_minutes"
 CONF_CURRENCY_DISPLAY = "currency_display"
 CONF_VAT_MARKET_IMPORT = "vat_market_import"
 CONF_VAT_IMPORT_MARKUP = "vat_import_markup"
@@ -40,6 +41,9 @@ PRICE_SENSOR_KEYS = frozenset(
         "energy_tax",
         "vat",
         "import_export_spread",
+        "effective_battery_cost",
+        "estimated_arbitrage_value",
+        "solar_storage_value",
     }
 )
 
@@ -102,3 +106,4 @@ TAX_PROFILE_DEFAULTS: dict[TaxProfile, dict[str, Decimal]] = {
 DEFAULT_IMPORT_MARKUP = Decimal("0")
 DEFAULT_EXPORT_ADJUSTMENT = Decimal("0")
 DEFAULT_BATTERY_EFFICIENCY = Decimal("0.85")
+DEFAULT_OPTIMIZATION_DURATION_MINUTES = 120
