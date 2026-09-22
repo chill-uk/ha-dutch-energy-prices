@@ -7,8 +7,7 @@
         "description": "Choose the native 15-minute source and a starting tax profile. All tax values remain editable.",
         "data": {
           "price_source": "Price source",
-          "tax_profile": "Netherlands tax profile",
-          "currency_display": "Currency display"
+          "tax_profile": "Netherlands tax profile"
         }
       },
       "details": {

@@ -51,6 +51,11 @@ import = (market + supplier import markup + energy tax) × (1 + VAT)
 export = market + supplier export adjustment
 ```
 
+The display unit is selected when the integration is created and then remains
+fixed for that config entry. This prevents Home Assistant long-term statistics
+from being invalidated by switching an existing sensor between EUR/kWh and
+ct/kWh.
+
 The 2026 profile uses the household electricity energy-tax rate of **€0.09161/kWh excluding VAT** (equivalent to €0.11085 including 21% VAT). The 2027 value is explicitly provisional and user-editable until final statutory rates are available.
 
 ## Installation

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
@@ -26,7 +26,10 @@ from .const import (
     ATTR_PRICES_TODAY,
     ATTR_PRICES_TOMORROW,
     CONF_CURRENCY_DISPLAY,
+    CURRENCY_UNITS,
     DOMAIN,
+    UNIT_CENT_PER_KWH,
+    UNIT_EUR_PER_KWH,
     CurrencyDisplay,
 )
 from .coordinator import DutchEnergyPricesCoordinator
@@ -91,9 +94,15 @@ async def async_setup_entry(
     coordinator: DutchEnergyPricesCoordinator = entry.runtime_data
     config = {**entry.data, **entry.options}
     currency = CurrencyDisplay(config[CONF_CURRENCY_DISPLAY])
+    unit = CURRENCY_UNITS[currency]
     async_add_entities(
         [
-            DutchCurrentPriceSensor(coordinator, entry, description, currency)
+            DutchCurrentPriceSensor(
+                coordinator,
+                entry,
+                replace(description, native_unit_of_measurement=unit),
+                currency,
+            )
             for description in SENSOR_DESCRIPTIONS
         ]
         + [
@@ -139,9 +148,6 @@ class DutchCurrentPriceSensor(DutchEnergyBaseSensor):
         super().__init__(coordinator, entry, description.key)
         self.entity_description = description
         self._currency = currency
-        self._attr_native_unit_of_measurement = (
-            "€/kWh" if currency is CurrencyDisplay.EUR_PER_KWH else "ct/kWh"
-        )
 
     @property
     def native_value(self) -> Decimal | None:
@@ -207,6 +213,10 @@ class DutchCheapestWindowSensor(DutchEnergyBaseSensor):
         return {
             "end": window.end.isoformat(),
             "average_import_price": str(price),
-            "price_unit": "€/kWh" if self._currency is CurrencyDisplay.EUR_PER_KWH else "ct/kWh",
+            "price_unit": (
+                UNIT_EUR_PER_KWH
+                if self._currency is CurrencyDisplay.EUR_PER_KWH
+                else UNIT_CENT_PER_KWH
+            ),
             "slots": self._slots,
         }

@@ -29,6 +29,20 @@ CONF_VAT_EXPORT_ADJUSTMENT = "vat_export_adjustment"
 ATTR_PRICES_TODAY = "prices_today"
 ATTR_PRICES_TOMORROW = "prices_tomorrow"
 
+UNIT_EUR_PER_KWH = "€/kWh"
+UNIT_CENT_PER_KWH = "ct/kWh"
+
+PRICE_SENSOR_KEYS = frozenset(
+    {
+        "market_price",
+        "import_price",
+        "export_price",
+        "energy_tax",
+        "vat",
+        "import_export_spread",
+    }
+)
+
 UPDATE_INTERVAL_MINUTES = 15
 PERIOD_MINUTES = 15
 
@@ -52,6 +66,12 @@ class CurrencyDisplay(StrEnum):
 
     EUR_PER_KWH = "eur_per_kwh"
     CENT_PER_KWH = "cent_per_kwh"
+
+
+CURRENCY_UNITS = {
+    CurrencyDisplay.EUR_PER_KWH: UNIT_EUR_PER_KWH,
+    CurrencyDisplay.CENT_PER_KWH: UNIT_CENT_PER_KWH,
+}
 
 
 class TaxProfile(StrEnum):

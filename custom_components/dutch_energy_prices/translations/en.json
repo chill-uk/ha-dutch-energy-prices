@@ -22,7 +22,7 @@
       "init": {
         "title": "Dutch Energy Prices options",
         "data": {
-          "price_source": "Price source", "tax_profile": "Netherlands tax profile", "currency_display": "Currency display"
+          "price_source": "Price source", "tax_profile": "Netherlands tax profile"
         }
       },
       "details": {

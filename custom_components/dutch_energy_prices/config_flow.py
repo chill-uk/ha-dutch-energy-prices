@@ -205,10 +205,13 @@ class DutchEnergyPricesOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Choose source and display/profile settings before source-specific details."""
-        if user_input is not None:
-            self._base = user_input
-            return await self.async_step_details()
         current = {**self.config_entry.data, **self.config_entry.options}
+        if user_input is not None:
+            self._base = {
+                CONF_CURRENCY_DISPLAY: current[CONF_CURRENCY_DISPLAY],
+                **user_input,
+            }
+            return await self.async_step_details()
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -227,15 +230,6 @@ class DutchEnergyPricesOptionsFlow(config_entries.OptionsFlow):
                         selector.SelectSelectorConfig(
                             options=[item.value for item in TaxProfile],
                             translation_key="tax_profile",
-                        )
-                    ),
-                    vol.Required(
-                        CONF_CURRENCY_DISPLAY,
-                        default=current[CONF_CURRENCY_DISPLAY],
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[item.value for item in CurrencyDisplay],
-                            translation_key="currency_display",
                         )
                     ),
                 }
