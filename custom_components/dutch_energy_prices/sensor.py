@@ -164,6 +164,9 @@ class DutchCurrentPriceSensor(DutchEnergyBaseSensor):
     """Expose a current price component."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
+    # Forecast arrays are useful to live dashboard cards but exceed Recorder's
+    # attribute size limit once both complete days are available.
+    _unrecorded_attributes = frozenset({ATTR_PRICES_TODAY, ATTR_PRICES_TOMORROW})
 
     def __init__(
         self,
@@ -333,7 +336,6 @@ class DutchBatteryWindowSensor(DutchEnergyBaseSensor):
 class DutchArbitrageValueSensor(DutchEnergyBaseSensor):
     """Expose the best forecast grid-arbitrage value per delivered kWh."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 5
 
     def __init__(
@@ -392,7 +394,6 @@ class DutchArbitrageValueSensor(DutchEnergyBaseSensor):
 class DutchSolarStorageValueSensor(DutchEnergyBaseSensor):
     """Expose the value of storing current solar surplus instead of exporting it."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_suggested_display_precision = 5
 
     def __init__(

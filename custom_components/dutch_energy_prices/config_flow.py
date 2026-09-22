@@ -39,6 +39,7 @@ from .const import (
     PriceSource,
     SourcePriceUnit,
     TaxProfile,
+    values_for_profile,
 )
 
 
@@ -263,5 +264,5 @@ class DutchEnergyPricesOptionsFlow(config_entries.OptionsFlow):
         source = PriceSource(self._base[CONF_PRICE_SOURCE])
         return self.async_show_form(
             step_id="details",
-            data_schema=_details_schema(profile, source, current),
+            data_schema=_details_schema(profile, source, values_for_profile(profile, current)),
         )

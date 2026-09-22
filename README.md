@@ -10,6 +10,8 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 - Calculates raw market, all-in import, export, energy-tax and import/export-spread sensors.
 - Finds the cheapest contiguous 15-minute, 1-hour and 2-hour windows without hourly aggregation.
 - Exposes today and tomorrow on the market-price sensor only, avoiding duplicate large attributes.
+- The live forecast arrays are excluded from Recorder history so a complete
+  two-day price schedule does not exceed its state-attribute size limit.
 - Provides editable Netherlands 2026, provisional Netherlands 2027 and custom tax profiles.
 - Includes diagnostics, translations, tests, Ruff and HACS metadata.
 - Calculates battery losses, the best ordered charge/discharge windows, expected
@@ -61,6 +63,14 @@ from being invalidated by switching an existing sensor between EUR/kWh and
 ct/kWh.
 
 The 2026 profile uses the household electricity energy-tax rate of **€0.09161/kWh excluding VAT** (equivalent to €0.11085 including 21% VAT). The 2027 value is explicitly provisional and user-editable until final statutory rates are available.
+
+Changing the profile in integration options loads that profile's VAT and
+energy-tax defaults in the next screen; review or edit them before saving.
+Keeping the same profile preserves your previously edited tax values.
+
+Current price and future-window sensors update at every Dutch 15-minute price
+boundary. ENTSO-E forecasts are fetched every 15 minutes; an existing Home
+Assistant price-entity source also refreshes when that source changes.
 
 ## Installation
 
@@ -119,7 +129,8 @@ solar storage value = later average import price × round-trip efficiency
 Values may be negative. The opportunity sensors expose `profitable` or
 `worth_storing` attributes so an automation can distinguish a recommendation
 from the least-bad unprofitable window. Calculations use the currently available
-day-ahead forecast and do not control a battery.
+day-ahead forecast and do not control a battery. The forecast-value sensors do
+not opt in to Home Assistant's long-term measurement statistics.
 
 ## Roadmap
 

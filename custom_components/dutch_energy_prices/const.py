@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 DOMAIN = "dutch_energy_prices"
 NAME = "Dutch Energy Prices"
@@ -107,3 +108,15 @@ DEFAULT_IMPORT_MARKUP = Decimal("0")
 DEFAULT_EXPORT_ADJUSTMENT = Decimal("0")
 DEFAULT_BATTERY_EFFICIENCY = Decimal("0.85")
 DEFAULT_OPTIMIZATION_DURATION_MINUTES = 120
+
+
+def values_for_profile(profile: TaxProfile, current: dict[str, Any]) -> dict[str, Any]:
+    """Apply preset tax defaults only when the selected profile changes."""
+    if profile.value == current.get(CONF_TAX_PROFILE):
+        return current
+    defaults = TAX_PROFILE_DEFAULTS[profile]
+    return {
+        **current,
+        CONF_VAT_PERCENTAGE: float(defaults[CONF_VAT_PERCENTAGE]),
+        CONF_ENERGY_TAX: float(defaults[CONF_ENERGY_TAX]),
+    }

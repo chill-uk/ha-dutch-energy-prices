@@ -26,6 +26,11 @@ class HomeAssistantEntityPriceProvider(PriceProvider):
         self._entity_id = entity_id
         self._unit = unit
 
+    @property
+    def source_entity_id(self) -> str:
+        """Return the source entity to watch for new forecast prices."""
+        return self._entity_id
+
     async def async_get_prices(self) -> tuple[MarketPricePeriod, ...]:
         state = self._hass.states.get(self._entity_id)
         if state is None:

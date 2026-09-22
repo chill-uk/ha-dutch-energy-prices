@@ -38,6 +38,7 @@
     "step": {
       "init": {
         "title": "Dutch Energy Prices options",
+        "description": "Changing the tax profile loads its default VAT and energy tax in the next step. You can still edit those values before saving.",
         "data": {
           "price_source": "Price source",
           "tax_profile": "Netherlands tax profile"
