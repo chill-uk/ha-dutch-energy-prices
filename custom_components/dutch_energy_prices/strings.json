@@ -22,7 +22,7 @@
           "energy_tax": "Energy tax",
           "supplier_import_markup": "Supplier import markup",
           "supplier_export_adjustment": "Supplier export adjustment",
-          "battery_round_trip_efficiency": "Battery round-trip efficiency", "max_charge_power_kw": "Maximum charging power (kW)", "max_discharge_power_kw": "Maximum discharge power (kW)", "battery_target_energy_kwh": "Energy to deliver (kWh)",
+          "battery_round_trip_efficiency": "Battery round-trip efficiency", "max_charge_power_kw": "Maximum charging power (kW)", "max_discharge_power_kw": "Maximum discharge power (kW)", "battery_target_energy_kwh": "Energy to deliver (kWh)", "battery_soc_entity": "Battery level sensor (%)", "household_load_entity": "Household load sensor (W or kW)", "battery_usable_capacity_kwh": "Usable battery capacity (kWh)", "battery_min_reserve_percent": "Minimum battery reserve (%)", "battery_reserve_buffer_kwh": "Additional reserve buffer (kWh)",
           "optimization_duration_minutes": "Optimisation duration",
           "vat_market_import": "Apply VAT to imported market price",
           "vat_import_markup": "Apply VAT to import markup",
@@ -55,7 +55,7 @@
           "energy_tax": "Energy tax",
           "supplier_import_markup": "Supplier import markup",
           "supplier_export_adjustment": "Supplier export adjustment",
-          "battery_round_trip_efficiency": "Battery round-trip efficiency", "max_charge_power_kw": "Maximum charging power (kW)", "max_discharge_power_kw": "Maximum discharge power (kW)", "battery_target_energy_kwh": "Energy to deliver (kWh)",
+          "battery_round_trip_efficiency": "Battery round-trip efficiency", "max_charge_power_kw": "Maximum charging power (kW)", "max_discharge_power_kw": "Maximum discharge power (kW)", "battery_target_energy_kwh": "Energy to deliver (kWh)", "battery_soc_entity": "Battery level sensor (%)", "household_load_entity": "Household load sensor (W or kW)", "battery_usable_capacity_kwh": "Usable battery capacity (kWh)", "battery_min_reserve_percent": "Minimum battery reserve (%)", "battery_reserve_buffer_kwh": "Additional reserve buffer (kWh)",
           "optimization_duration_minutes": "Optimisation duration",
           "vat_market_import": "Apply VAT to imported market price",
           "vat_import_markup": "Apply VAT to import markup",
@@ -87,7 +87,7 @@
       "best_battery_charge_period": {"name": "Best battery charge period"},
       "best_battery_discharge_period": {"name": "Best battery discharge period"},
       "estimated_arbitrage_value": {"name": "Estimated arbitrage value"},
-      "solar_storage_value": {"name": "Solar storage value"}, "battery_plan_charge_start": {"name": "Battery plan charge start"}, "battery_plan_discharge_start": {"name": "Battery plan discharge start"}, "battery_plan_value": {"name": "Battery plan savings"}
+      "solar_storage_value": {"name": "Solar storage value"}, "battery_plan_charge_start": {"name": "Battery plan charge start"}, "battery_plan_discharge_start": {"name": "Battery plan discharge start"}, "battery_plan_value": {"name": "Battery plan savings"}, "battery_rolling_action": {"name": "Battery rolling action"}
     }
   }
 }

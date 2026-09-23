@@ -10,8 +10,9 @@ from custom_components.dutch_energy_prices import async_setup_entry
 
 
 @pytest.mark.parametrize("source_entity_id", [None, "sensor.external_prices"])
+@pytest.mark.parametrize("telemetry", [False, True])
 def test_price_boundaries_and_source_changes_register_once(
-    monkeypatch: pytest.MonkeyPatch, source_entity_id: str | None
+    monkeypatch: pytest.MonkeyPatch, source_entity_id: str | None, telemetry: bool
 ) -> None:
     callbacks = {}
 
@@ -22,13 +23,19 @@ def test_price_boundaries_and_source_changes_register_once(
         return lambda: None
 
     def track_state(_hass, entity_id, action):
-        assert entity_id == "sensor.external_prices"
-        callbacks["source"] = action
+        if isinstance(entity_id, tuple):
+            assert entity_id == ("sensor.battery", "sensor.load")
+            callbacks["telemetry"] = action
+        else:
+            assert entity_id == "sensor.external_prices"
+            callbacks["source"] = action
         return lambda: None
 
     class FakeCoordinator:
         def __init__(self, _hass, _entry, provider, _settings):
             self.provider = provider
+            self.soc_entity_id = "sensor.battery" if telemetry else None
+            self.load_entity_id = "sensor.load" if telemetry else None
             self.listener_updates = 0
             self.source_refreshes = 0
 
@@ -96,9 +103,12 @@ def test_price_boundaries_and_source_changes_register_once(
             callbacks["source"](object())
             await asyncio.sleep(0)
             assert entry.runtime_data.source_refreshes == 1
-            assert len(entry.unload_callbacks) == 3
+            assert len(entry.unload_callbacks) == 3 + int(telemetry)
         else:
             assert "source" not in callbacks
-            assert len(entry.unload_callbacks) == 2
+            assert len(entry.unload_callbacks) == 2 + int(telemetry)
+        if telemetry:
+            callbacks["telemetry"](object())
+            assert entry.runtime_data.listener_updates == 2
 
     asyncio.run(run())

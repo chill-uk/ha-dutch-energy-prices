@@ -13,10 +13,15 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_BATTERY_EFFICIENCY,
+    CONF_BATTERY_MIN_RESERVE,
+    CONF_BATTERY_RESERVE_BUFFER,
+    CONF_BATTERY_SOC_ENTITY,
     CONF_BATTERY_TARGET_ENERGY,
+    CONF_BATTERY_USABLE_CAPACITY,
     CONF_CURRENCY_DISPLAY,
     CONF_ENERGY_TAX,
     CONF_ENTSOE_API_TOKEN,
+    CONF_HOUSEHOLD_LOAD_ENTITY,
     CONF_MAX_CHARGE_POWER,
     CONF_MAX_DISCHARGE_POWER,
     CONF_OPTIMIZATION_DURATION,
@@ -33,7 +38,10 @@ from .const import (
     CONF_VAT_MARKET_IMPORT,
     CONF_VAT_PERCENTAGE,
     DEFAULT_BATTERY_EFFICIENCY,
+    DEFAULT_BATTERY_MIN_RESERVE,
+    DEFAULT_BATTERY_RESERVE_BUFFER,
     DEFAULT_BATTERY_TARGET_ENERGY,
+    DEFAULT_BATTERY_USABLE_CAPACITY,
     DEFAULT_EXPORT_ADJUSTMENT,
     DEFAULT_IMPORT_MARKUP,
     DEFAULT_MAX_CHARGE_POWER,
@@ -133,6 +141,38 @@ def _details_schema(
                     CONF_BATTERY_TARGET_ENERGY, float(DEFAULT_BATTERY_TARGET_ENERGY)
                 ),
             ): _number(DEFAULT_BATTERY_TARGET_ENERGY, minimum=0.01),
+            vol.Optional(
+                CONF_BATTERY_SOC_ENTITY,
+                **(
+                    {"default": values[CONF_BATTERY_SOC_ENTITY]}
+                    if values.get(CONF_BATTERY_SOC_ENTITY)
+                    else {}
+                ),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_HOUSEHOLD_LOAD_ENTITY,
+                **(
+                    {"default": values[CONF_HOUSEHOLD_LOAD_ENTITY]}
+                    if values.get(CONF_HOUSEHOLD_LOAD_ENTITY)
+                    else {}
+                ),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_BATTERY_USABLE_CAPACITY,
+                default=values.get(
+                    CONF_BATTERY_USABLE_CAPACITY, float(DEFAULT_BATTERY_USABLE_CAPACITY)
+                ),
+            ): _number(DEFAULT_BATTERY_USABLE_CAPACITY, minimum=0.01),
+            vol.Required(
+                CONF_BATTERY_MIN_RESERVE,
+                default=values.get(CONF_BATTERY_MIN_RESERVE, float(DEFAULT_BATTERY_MIN_RESERVE)),
+            ): _number(DEFAULT_BATTERY_MIN_RESERVE, minimum=0, maximum=100),
+            vol.Required(
+                CONF_BATTERY_RESERVE_BUFFER,
+                default=values.get(
+                    CONF_BATTERY_RESERVE_BUFFER, float(DEFAULT_BATTERY_RESERVE_BUFFER)
+                ),
+            ): _number(DEFAULT_BATTERY_RESERVE_BUFFER, minimum=0),
             vol.Required(
                 CONF_OPTIMIZATION_DURATION,
                 default=values.get(
@@ -220,7 +260,15 @@ class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Collect editable pricing details."""
         if user_input is not None:
-            return self.async_create_entry(title="Dutch Energy", data={**self._base, **user_input})
+            return self.async_create_entry(
+                title="Dutch Energy",
+                data={
+                    **self._base,
+                    CONF_BATTERY_SOC_ENTITY: None,
+                    CONF_HOUSEHOLD_LOAD_ENTITY: None,
+                    **user_input,
+                },
+            )
         profile = TaxProfile(self._base[CONF_TAX_PROFILE])
         source = PriceSource(self._base[CONF_PRICE_SOURCE])
         return self.async_show_form(step_id="details", data_schema=_details_schema(profile, source))
@@ -279,7 +327,15 @@ class DutchEnergyPricesOptionsFlow(config_entries.OptionsFlow):
         """Edit source credentials and price components."""
         current = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
-            return self.async_create_entry(title="", data={**self._base, **user_input})
+            return self.async_create_entry(
+                title="",
+                data={
+                    **self._base,
+                    CONF_BATTERY_SOC_ENTITY: None,
+                    CONF_HOUSEHOLD_LOAD_ENTITY: None,
+                    **user_input,
+                },
+            )
         profile = TaxProfile(self._base[CONF_TAX_PROFILE])
         source = PriceSource(self._base[CONF_PRICE_SOURCE])
         return self.async_show_form(

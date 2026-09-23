@@ -69,6 +69,9 @@ class PriceSettings:
     max_charge_power_kw: Decimal = Decimal("3")
     max_discharge_power_kw: Decimal = Decimal("2.4")
     battery_target_energy_kwh: Decimal = Decimal("10")
+    battery_usable_capacity_kwh: Decimal = Decimal("17")
+    battery_min_reserve_percent: Decimal = Decimal("15")
+    battery_reserve_buffer_kwh: Decimal = Decimal("1")
     vat_market_import: bool = True
     vat_import_markup: bool = True
     vat_energy_tax: bool = True
@@ -93,6 +96,12 @@ class PriceSettings:
             <= 0
         ):
             raise ValueError("Battery power limits and target energy must be positive")
+        if self.battery_usable_capacity_kwh <= 0:
+            raise ValueError("Usable battery capacity must be positive")
+        if not 0 <= self.battery_min_reserve_percent <= 100:
+            raise ValueError("Battery minimum reserve must be between 0 and 100%")
+        if self.battery_reserve_buffer_kwh < 0:
+            raise ValueError("Battery reserve buffer cannot be negative")
 
     @property
     def vat_multiplier(self) -> Decimal:

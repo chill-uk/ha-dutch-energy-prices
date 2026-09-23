@@ -53,3 +53,25 @@ def test_battery_plan_settings_must_be_positive(field: str) -> None:
             supplier_export_adjustment=Decimal("0"),
             **{field: Decimal("0")},
         )
+
+
+@pytest.mark.parametrize(
+    "reserve,buffer,capacity",
+    [
+        ("-1", "1", "17"),
+        ("101", "1", "17"),
+        ("15", "-1", "17"),
+        ("15", "1", "0"),
+    ],
+)
+def test_reserve_settings_are_validated(reserve: str, buffer: str, capacity: str) -> None:
+    with pytest.raises(ValueError):
+        PriceSettings(
+            vat_percentage=Decimal("21"),
+            energy_tax=Decimal("0.1"),
+            supplier_import_markup=Decimal("0"),
+            supplier_export_adjustment=Decimal("0"),
+            battery_min_reserve_percent=Decimal(reserve),
+            battery_reserve_buffer_kwh=Decimal(buffer),
+            battery_usable_capacity_kwh=Decimal(capacity),
+        )

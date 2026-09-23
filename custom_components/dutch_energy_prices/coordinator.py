@@ -39,6 +39,11 @@ class DutchEnergyPricesCoordinator(DataUpdateCoordinator[PriceData]):
         )
         self.provider = provider
         self.settings = settings
+        from .const import CONF_BATTERY_SOC_ENTITY, CONF_HOUSEHOLD_LOAD_ENTITY
+
+        config = {**entry.data, **entry.options}
+        self.soc_entity_id: str | None = config.get(CONF_BATTERY_SOC_ENTITY)
+        self.load_entity_id: str | None = config.get(CONF_HOUSEHOLD_LOAD_ENTITY)
 
     async def _async_update_data(self) -> PriceData:
         try:
@@ -59,7 +64,10 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
 
     from .const import (
         CONF_BATTERY_EFFICIENCY,
+        CONF_BATTERY_MIN_RESERVE,
+        CONF_BATTERY_RESERVE_BUFFER,
         CONF_BATTERY_TARGET_ENERGY,
+        CONF_BATTERY_USABLE_CAPACITY,
         CONF_ENERGY_TAX,
         CONF_MAX_CHARGE_POWER,
         CONF_MAX_DISCHARGE_POWER,
@@ -72,7 +80,10 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         CONF_VAT_MARKET_EXPORT,
         CONF_VAT_MARKET_IMPORT,
         CONF_VAT_PERCENTAGE,
+        DEFAULT_BATTERY_MIN_RESERVE,
+        DEFAULT_BATTERY_RESERVE_BUFFER,
         DEFAULT_BATTERY_TARGET_ENERGY,
+        DEFAULT_BATTERY_USABLE_CAPACITY,
         DEFAULT_MAX_CHARGE_POWER,
         DEFAULT_MAX_DISCHARGE_POWER,
         DEFAULT_OPTIMIZATION_DURATION_MINUTES,
@@ -95,6 +106,15 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         ),
         battery_target_energy_kwh=Decimal(
             str(config.get(CONF_BATTERY_TARGET_ENERGY, DEFAULT_BATTERY_TARGET_ENERGY))
+        ),
+        battery_usable_capacity_kwh=Decimal(
+            str(config.get(CONF_BATTERY_USABLE_CAPACITY, DEFAULT_BATTERY_USABLE_CAPACITY))
+        ),
+        battery_min_reserve_percent=Decimal(
+            str(config.get(CONF_BATTERY_MIN_RESERVE, DEFAULT_BATTERY_MIN_RESERVE))
+        ),
+        battery_reserve_buffer_kwh=Decimal(
+            str(config.get(CONF_BATTERY_RESERVE_BUFFER, DEFAULT_BATTERY_RESERVE_BUFFER))
         ),
         vat_market_import=bool(config[CONF_VAT_MARKET_IMPORT]),
         vat_import_markup=bool(config[CONF_VAT_IMPORT_MARKUP]),

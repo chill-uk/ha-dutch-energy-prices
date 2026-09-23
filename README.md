@@ -28,6 +28,9 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
   native 15-minute increments.
 - Plans a configurable delivered-energy target using separate maximum charging
   and discharging power limits, including partial 15-minute slots.
+- Provides a live, read-only charge/discharge/hold recommendation using optional
+  battery-level and household-load sensors, with an energy reserve until the
+  next forecast cheap charging window.
 
 The fixed annual energy-tax rebate is deliberately excluded because it does not alter the marginal cost of charging one additional kWh.
 
@@ -93,7 +96,7 @@ Assistant price-entity source also refreshes when that source changes.
 5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
    15-minute source sensor.
 
-Tagged releases (`v0.3.0`, etc.) attach `dutch_energy_prices.zip`. HACS
+Tagged releases (`v0.4.0`, etc.) attach `dutch_energy_prices.zip`. HACS
 installs that ZIP as the integration; it contains the contents of
 `custom_components/dutch_energy_prices` at the archive root.
 
@@ -120,6 +123,7 @@ Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_co
 - `sensor.dutch_energy_battery_plan_charge_start`
 - `sensor.dutch_energy_battery_plan_discharge_start`
 - `sensor.dutch_energy_battery_plan_value`
+- `sensor.dutch_energy_battery_rolling_action` (when both telemetry sensors are configured)
 
 Home Assistant may append a suffix if one of these entity IDs already exists.
 
@@ -166,6 +170,32 @@ integration does not yet read battery state of charge, usable capacity or a
 household-load forecast. If household demand is lower than battery output,
 actual savings will be lower; export revenue, import/export constraints, solar
 forecast and battery control are outside this plan.
+
+### Rolling recommendation
+
+On the second configuration screen you can optionally select a battery level
+sensor reporting percent and a household load sensor reporting W or kW. Also
+configure usable battery capacity, a minimum reserve percentage and an
+additional reserve buffer in kWh. Existing installations retain all earlier
+sensors when these optional entities are not selected.
+
+The rolling action sensor recommends `charge`, `discharge` or `hold` for the
+remaining portion of the current 15-minute slot. It considers only complete
+contiguous charging windows, charging power, round-trip efficiency and
+profitable later import avoidance. A discharge recommendation cannot exceed
+the live household load or configured output power; it preserves the minimum
+reserve plus an estimate of household use until the next available cheap
+charging window. Attributes include the reserve, currently available energy,
+suggested power, and estimated value for the slot. It updates on quarter-hour
+boundaries and on changes to either telemetry sensor.
+
+This is a **read-only estimate**, not a battery automation. It treats the
+current household load as a constant baseline until the next cheap period;
+that is not a load forecast. It does not account for solar production, future
+household load changes, standby losses or battery wear. If the telemetry is
+invalid or price coverage is missing, the sensor is unavailable instead of
+recommending an action. Review its recommendations before using them in an
+automation. Battery controls remain outside the integration.
 
 ## Roadmap
 

@@ -52,6 +52,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         )
 
+    telemetry_entities = tuple(
+        entity_id
+        for entity_id in (coordinator.soc_entity_id, coordinator.load_entity_id)
+        if entity_id
+    )
+    if telemetry_entities:
+
+        @callback
+        def _on_battery_telemetry_change(_event: Event) -> None:
+            """Recalculate live battery guidance without fetching prices again."""
+            coordinator.async_update_listeners()
+
+        entry.async_on_unload(
+            async_track_state_change_event(hass, telemetry_entities, _on_battery_telemetry_change)
+        )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

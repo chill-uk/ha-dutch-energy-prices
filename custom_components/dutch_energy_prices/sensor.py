@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from homeassistant.components.sensor import (
@@ -32,7 +32,9 @@ from .calculations import (
 from .const import (
     ATTR_PRICES_TODAY,
     ATTR_PRICES_TOMORROW,
+    CONF_BATTERY_SOC_ENTITY,
     CONF_CURRENCY_DISPLAY,
+    CONF_HOUSEHOLD_LOAD_ENTITY,
     CURRENCY_UNITS,
     DOMAIN,
     UNIT_CENT_PER_KWH,
@@ -47,6 +49,7 @@ from .models import (
     PriceWindow,
     SolarStorageOpportunity,
 )
+from .rolling_plan import RollingDecision, rolling_decision
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -116,33 +119,33 @@ async def async_setup_entry(
     config = {**entry.data, **entry.options}
     currency = CurrencyDisplay(config[CONF_CURRENCY_DISPLAY])
     unit = CURRENCY_UNITS[currency]
-    async_add_entities(
-        [
-            DutchCurrentPriceSensor(
-                coordinator,
-                entry,
-                replace(description, native_unit_of_measurement=unit),
-                currency,
-            )
-            for description in SENSOR_DESCRIPTIONS
-        ]
-        + [
-            DutchCheapestWindowSensor(coordinator, entry, "cheapest_slot", 1, currency),
-            DutchCheapestWindowSensor(coordinator, entry, "cheapest_1h", 4, currency),
-            DutchCheapestWindowSensor(coordinator, entry, "cheapest_2h", 8, currency),
-            DutchBatteryWindowSensor(
-                coordinator, entry, "best_battery_charge_period", "charge", currency
-            ),
-            DutchBatteryWindowSensor(
-                coordinator, entry, "best_battery_discharge_period", "discharge", currency
-            ),
-            DutchArbitrageValueSensor(coordinator, entry, currency),
-            DutchSolarStorageValueSensor(coordinator, entry, currency),
-            DutchBatteryPlanWindowSensor(coordinator, entry, "charge"),
-            DutchBatteryPlanWindowSensor(coordinator, entry, "discharge"),
-            DutchBatteryPlanValueSensor(coordinator, entry),
-        ]
-    )
+    entities = [
+        DutchCurrentPriceSensor(
+            coordinator,
+            entry,
+            replace(description, native_unit_of_measurement=unit),
+            currency,
+        )
+        for description in SENSOR_DESCRIPTIONS
+    ] + [
+        DutchCheapestWindowSensor(coordinator, entry, "cheapest_slot", 1, currency),
+        DutchCheapestWindowSensor(coordinator, entry, "cheapest_1h", 4, currency),
+        DutchCheapestWindowSensor(coordinator, entry, "cheapest_2h", 8, currency),
+        DutchBatteryWindowSensor(
+            coordinator, entry, "best_battery_charge_period", "charge", currency
+        ),
+        DutchBatteryWindowSensor(
+            coordinator, entry, "best_battery_discharge_period", "discharge", currency
+        ),
+        DutchArbitrageValueSensor(coordinator, entry, currency),
+        DutchSolarStorageValueSensor(coordinator, entry, currency),
+        DutchBatteryPlanWindowSensor(coordinator, entry, "charge"),
+        DutchBatteryPlanWindowSensor(coordinator, entry, "discharge"),
+        DutchBatteryPlanValueSensor(coordinator, entry),
+    ]
+    if config.get(CONF_BATTERY_SOC_ENTITY) and config.get(CONF_HOUSEHOLD_LOAD_ENTITY):
+        entities.append(DutchRollingActionSensor(coordinator, entry))
+    async_add_entities(entities)
 
 
 class DutchEnergyBaseSensor(CoordinatorEntity[DutchEnergyPricesCoordinator], SensorEntity):
@@ -542,4 +545,63 @@ class DutchBatteryPlanValueSensor(DutchEnergyBaseSensor):
             "discharge_start": plan.discharge_window.start.isoformat(),
             "profitable": plan.net_value_eur > 0,
             "assumes_full_household_use": True,
+        }
+
+
+def _rolling_recommendation(coordinator: DutchEnergyPricesCoordinator) -> RollingDecision | None:
+    """Use configured live telemetry only when units and states are valid."""
+    soc = coordinator.hass.states.get(coordinator.soc_entity_id)
+    load = coordinator.hass.states.get(coordinator.load_entity_id)
+    if soc is None or load is None:
+        return None
+    try:
+        if soc.attributes.get("unit_of_measurement") not in (None, "%"):
+            return None
+        percentage = Decimal(soc.state)
+        watts = Decimal(load.state)
+        unit = load.attributes.get("unit_of_measurement")
+        if unit == "W":
+            load_kw = watts / Decimal("1000")
+        elif unit == "kW":
+            load_kw = watts
+        else:
+            return None
+        if not percentage.is_finite() or not load_kw.is_finite():
+            return None
+    except InvalidOperation:
+        return None
+    return rolling_decision(
+        coordinator.data.periods,
+        dt_util.utcnow(),
+        percentage,
+        load_kw,
+        coordinator.settings,
+    )
+
+
+class DutchRollingActionSensor(DutchEnergyBaseSensor):
+    """Expose the suggested action for the current slot without controlling devices."""
+
+    def __init__(self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "battery_rolling_action")
+        self._attr_translation_key = "battery_rolling_action"
+
+    @property
+    def native_value(self) -> str | None:
+        decision = _rolling_recommendation(self.coordinator)
+        return decision.action if decision else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        decision = _rolling_recommendation(self.coordinator)
+        if decision is None:
+            return None
+        return {
+            "reserve_kwh": str(decision.reserve_kwh),
+            "available_to_discharge_kwh": str(decision.available_kwh),
+            "next_charge_start": decision.next_charge_start.isoformat(),
+            "recommended_power_kw": str(decision.recommended_power_kw),
+            "energy_this_slot_kwh": str(decision.slot_energy_kwh),
+            "estimated_value_this_slot_eur": str(decision.estimated_value_eur),
+            "assumes_constant_household_load": True,
         }

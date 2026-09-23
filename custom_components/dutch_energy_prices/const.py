@@ -24,6 +24,11 @@ CONF_OPTIMIZATION_DURATION = "optimization_duration_minutes"
 CONF_MAX_CHARGE_POWER = "max_charge_power_kw"
 CONF_MAX_DISCHARGE_POWER = "max_discharge_power_kw"
 CONF_BATTERY_TARGET_ENERGY = "battery_target_energy_kwh"
+CONF_BATTERY_SOC_ENTITY = "battery_soc_entity"
+CONF_HOUSEHOLD_LOAD_ENTITY = "household_load_entity"
+CONF_BATTERY_USABLE_CAPACITY = "battery_usable_capacity_kwh"
+CONF_BATTERY_MIN_RESERVE = "battery_min_reserve_percent"
+CONF_BATTERY_RESERVE_BUFFER = "battery_reserve_buffer_kwh"
 CONF_CURRENCY_DISPLAY = "currency_display"
 CONF_VAT_MARKET_IMPORT = "vat_market_import"
 CONF_VAT_IMPORT_MARKUP = "vat_import_markup"
@@ -114,6 +119,9 @@ DEFAULT_OPTIMIZATION_DURATION_MINUTES = 120
 DEFAULT_MAX_CHARGE_POWER = Decimal("3")
 DEFAULT_MAX_DISCHARGE_POWER = Decimal("2.4")
 DEFAULT_BATTERY_TARGET_ENERGY = Decimal("10")
+DEFAULT_BATTERY_USABLE_CAPACITY = Decimal("17")
+DEFAULT_BATTERY_MIN_RESERVE = Decimal("15")
+DEFAULT_BATTERY_RESERVE_BUFFER = Decimal("1")
 
 
 def values_for_profile(profile: TaxProfile, current: dict[str, Any]) -> dict[str, Any]:
