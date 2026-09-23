@@ -10,6 +10,25 @@
 
 A Home Assistant custom integration for Dutch dynamic electricity contracts, designed around native **15-minute** prices and the post-saldering market from 2027 onward.
 
+## Installation
+
+### HACS custom repository
+
+1. Add this repository to HACS as an Integration repository.
+2. Install **Dutch Energy Prices**.
+3. Restart Home Assistant.
+4. Go to **Settings → Devices & services → Add integration**.
+5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
+   15-minute source sensor.
+
+Tagged releases (`v0.4.0`, etc.) attach `dutch_energy_prices.zip`. HACS
+installs that ZIP as the integration; it contains the contents of
+`custom_components/dutch_energy_prices` at the archive root.
+
+### Manual
+
+Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_components` directory and restart Home Assistant.
+
 ## Features
 
 - Retrieves Dutch day-ahead prices directly from ENTSO-E or consumes native
@@ -18,10 +37,7 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 - Calculates raw market, all-in import, export, energy-tax and import/export-spread sensors.
 - Finds the cheapest contiguous 15-minute, 1-hour and 2-hour windows without hourly aggregation.
 - Exposes today and tomorrow on the market-price sensor only, avoiding duplicate large attributes.
-- The live forecast arrays are excluded from Recorder history so a complete
-  two-day price schedule does not exceed its state-attribute size limit.
 - Provides editable Netherlands 2026, provisional Netherlands 2027 and custom tax profiles.
-- Includes diagnostics, translations, tests, Ruff and HACS metadata.
 - Calculates battery losses, the best ordered charge/discharge windows, expected
   grid-arbitrage value and the value of storing solar instead of exporting it.
 - Supports an editable optimisation duration from 15 minutes to 24 hours in
@@ -84,48 +100,6 @@ Keeping the same profile preserves your previously edited tax values.
 Current price and future-window sensors update at every Dutch 15-minute price
 boundary. ENTSO-E forecasts are fetched every 15 minutes; an existing Home
 Assistant price-entity source also refreshes when that source changes.
-
-## Installation
-
-### HACS custom repository
-
-1. Add this repository to HACS as an Integration repository.
-2. Install **Dutch Energy Prices**.
-3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration**.
-5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
-   15-minute source sensor.
-
-Tagged releases (`v0.4.0`, etc.) attach `dutch_energy_prices.zip`. HACS
-installs that ZIP as the integration; it contains the contents of
-`custom_components/dutch_energy_prices` at the archive root.
-
-### Manual
-
-Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_components` directory and restart Home Assistant.
-
-## Sensors
-
-- `sensor.dutch_energy_market_price`
-- `sensor.dutch_energy_import_price`
-- `sensor.dutch_energy_export_price`
-- `sensor.dutch_energy_energy_tax`
-- `sensor.dutch_energy_vat`
-- `sensor.dutch_energy_cheapest_slot`
-- `sensor.dutch_energy_cheapest_1h`
-- `sensor.dutch_energy_cheapest_2h`
-- `sensor.dutch_energy_import_export_spread`
-- `sensor.dutch_energy_effective_battery_cost`
-- `sensor.dutch_energy_best_battery_charge_period`
-- `sensor.dutch_energy_best_battery_discharge_period`
-- `sensor.dutch_energy_estimated_arbitrage_value`
-- `sensor.dutch_energy_solar_storage_value`
-- `sensor.dutch_energy_battery_plan_charge_start`
-- `sensor.dutch_energy_battery_plan_discharge_start`
-- `sensor.dutch_energy_battery_plan_value`
-- `sensor.dutch_energy_battery_rolling_action` (when both telemetry sensors are configured)
-
-Home Assistant may append a suffix if one of these entity IDs already exists.
 
 ## Battery economics
 
