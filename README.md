@@ -12,22 +12,28 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
 
 ## Installation
 
+The quickest way to install this integration is via [HACS](https://github.com/hacs/integration) by clicking the button below:
+
+[![Add to HACS via My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chill-uk&repository=ha-dutch-energy-prices&category=integration)
+
+
+
 ### HACS custom repository
 
-1. Add this repository to HACS as an Integration repository.
-2. Install **Dutch Energy Prices**.
-3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration**.
-5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
+1. Click the button above to add this repository to HACS as a custom integration.
+2. Install `Dutch Energy Prices` from HACS.
+4. In Home Assistant, go to `Settings -> Devices & Services`.
+5. Add the `EcoFlow P1 Energy Tracker` integration.
+6. Restart Home Assistant.
+7. Select `Dutch Energy Prices` and choose `ENTSO-E` or a compatible
    15-minute source sensor.
 
-Tagged releases (`v0.4.0`, etc.) attach `dutch_energy_prices.zip`. HACS
-installs that ZIP as the integration; it contains the contents of
-`custom_components/dutch_energy_prices` at the archive root.
+### Manual installation
 
-### Manual
+1. Copy `custom_components/dutch_energy_prices` into your Home Assistant config directory.
+2. Restart Home Assistant.
+3. In Home Assistant, add the `Dutch Energy Prices` integration from `Settings -> Devices & Services`.
 
-Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_components` directory and restart Home Assistant.
 
 ## Features
 
