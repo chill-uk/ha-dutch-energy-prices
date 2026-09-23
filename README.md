@@ -85,6 +85,10 @@ Assistant price-entity source also refreshes when that source changes.
 5. Select **Dutch Energy Prices** and choose **ENTSO-E** or a compatible
    15-minute source sensor.
 
+Tagged releases (`v0.3.0`, etc.) attach `dutch_energy_prices.zip`. HACS
+installs that ZIP as the integration; it contains the contents of
+`custom_components/dutch_energy_prices` at the archive root.
+
 ### Manual
 
 Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_components` directory and restart Home Assistant.

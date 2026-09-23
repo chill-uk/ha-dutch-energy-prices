@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          MANIFEST_VERSION=$(jq -r '.version' custom_components/dutch_energy_prices/manifest.json)
+
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag ($TAG_VERSION) and manifest ($MANIFEST_VERSION) versions do not match."
+            exit 1
+          fi
+
+      - name: Create integration ZIP
+        run: |
+          cd custom_components/dutch_energy_prices
+          zip -r "$GITHUB_WORKSPACE/dutch_energy_prices.zip" .
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dutch_energy_prices.zip --clobber
+          else
+            RELEASE_FLAGS=()
+            if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+              RELEASE_FLAGS+=(--prerelease)
+            fi
+
+            gh release create "${GITHUB_REF_NAME}" \
+              dutch_energy_prices.zip \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes \
+              "${RELEASE_FLAGS[@]}"
+          fi
