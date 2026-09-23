@@ -1,3 +1,12 @@
+
+[![GitHub release](https://img.shields.io/github/release/chill-uk/chill-uk/ha-dutch-energy-prices?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices/releases/)
+[![issues - chill-uk/ha-dutch-energy-prices](https://img.shields.io/github/issues/chill-uk/chill-uk/ha-dutch-energy-prices)](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices/issues)
+[![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk/chill-uk/ha-dutch-energy-prices?color=red)](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices)
+[![GH-last-commit](https://img.shields.io/github/last-commit/chill-uk/chill-uk/ha-dutch-energy-prices?style=flat-square)](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices/commits/main)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Validation](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices/actions/workflows/validate.yml/badge.svg)](https://github.com/chill-uk/chill-uk/ha-dutch-energy-prices/actions/workflows/validate.yml)
+![GitHub Downloads](https://img.shields.io/github/downloads/chill-uk/chill-uk/ha-dutch-energy-prices/total)
+
 # Dutch Energy Prices
 
 A Home Assistant custom integration for Dutch dynamic electricity contracts, designed around native **15-minute** prices and the post-saldering market from 2027 onward.
