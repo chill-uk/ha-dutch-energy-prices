@@ -1,12 +1,12 @@
 # Dutch Energy Prices
 
-[![GitHub release](https://img.shields.io/github/release/chill-uk/ha-dutch-energy-pricesa?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk/ha-dutch-energy-pricesa/releases/)
-[![issues - ecoflow-p1-ha](https://img.shields.io/github/issues/chill-uk/ha-dutch-energy-pricesa)](https://github.com/chill-uk/ha-dutch-energy-pricesa/issues)
-[![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk/ha-dutch-energy-pricesa?color=red)](https://github.com/chill-uk/ha-dutch-energy-pricesa)
-[![GH-last-commit](https://img.shields.io/github/last-commit/chill-uk/ha-dutch-energy-pricesa?style=flat-square)](https://github.com/chill-uk/ha-dutch-energy-pricesa/commits/main)
+[![GitHub release](https://img.shields.io/github/release/chill-uk//ha-dutch-energy-prices?include_prereleases=&sort=semver&color=blue)](https://github.com/chill-uk//ha-dutch-energy-prices/releases/)
+[![issues - ecoflow-p1-ha](https://img.shields.io/github/issues/chill-uk//ha-dutch-energy-prices)](https://github.com/chill-uk//ha-dutch-energy-prices/issues)
+[![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk//ha-dutch-energy-prices?color=red)](https://github.com/chill-uk//ha-dutch-energy-prices)
+[![GH-last-commit](https://img.shields.io/github/last-commit/chill-uk//ha-dutch-energy-prices?style=flat-square)](https://github.com/chill-uk//ha-dutch-energy-prices/commits/main)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Validation](https://github.com/chill-uk/ha-dutch-energy-pricesa/actions/workflows/validate.yml/badge.svg)](https://github.com/chill-uk/ha-dutch-energy-pricesa/actions/workflows/validate.yml)
-![GitHub Downloads](https://img.shields.io/github/downloads/chill-uk/ha-dutch-energy-pricesa/total)
+[![Validation](https://github.com/chill-uk//ha-dutch-energy-prices/actions/workflows/validate.yml/badge.svg)](https://github.com/chill-uk//ha-dutch-energy-prices/actions/workflows/validate.yml)
+![GitHub Downloads](https://img.shields.io/github/downloads/chill-uk//ha-dutch-energy-prices/total)
 
 A Home Assistant custom integration for Dutch dynamic electricity contracts, designed around native **15-minute** prices and the post-saldering market from 2027 onward.
 
