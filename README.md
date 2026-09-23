@@ -5,7 +5,7 @@
 [![GH-code-size](https://img.shields.io/github/languages/code-size/chill-uk/ha-dutch-energy-prices?color=red)](https://github.com/chill-uk/ha-dutch-energy-prices)
 [![GH-last-commit](https://img.shields.io/github/last-commit/chill-uk/ha-dutch-energy-prices?style=flat-square)](https://github.com/chill-uk/ha-dutch-energy-prices/commits/main)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Validation](https://github.com/chill-uk/ha-dutch-energy-prices/actions/workflows/validate.yml/badge.svg)](https://github.com/chill-uk/ha-dutch-energy-prices/actions/workflows/validate.yml)
+[![Validation](https://github.com/chill-uk/ha-dutch-energy-prices/actions/workflows/hacs.yml/badge.svg)](https://github.com/chill-uk/ha-dutch-energy-prices/actions/workflows/hacs.yml)
 ![GitHub Downloads](https://img.shields.io/github/downloads/chill-uk/ha-dutch-energy-prices/total)
 
 A Home Assistant custom integration for Dutch dynamic electricity contracts, designed around native **15-minute** prices and the post-saldering market from 2027 onward.
