@@ -39,3 +39,17 @@ def test_optimization_duration_requires_quarter_hour_increments(duration: int) -
             supplier_export_adjustment=Decimal("0"),
             optimization_duration_minutes=duration,
         )
+
+
+@pytest.mark.parametrize(
+    "field", ["max_charge_power_kw", "max_discharge_power_kw", "battery_target_energy_kwh"]
+)
+def test_battery_plan_settings_must_be_positive(field: str) -> None:
+    with pytest.raises(ValueError, match="must be positive"):
+        PriceSettings(
+            vat_percentage=Decimal("21"),
+            energy_tax=Decimal("0.1"),
+            supplier_import_markup=Decimal("0"),
+            supplier_export_adjustment=Decimal("0"),
+            **{field: Decimal("0")},
+        )

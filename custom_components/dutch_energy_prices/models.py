@@ -66,6 +66,9 @@ class PriceSettings:
     supplier_export_adjustment: Decimal
     battery_round_trip_efficiency: Decimal = Decimal("0.85")
     optimization_duration_minutes: int = 120
+    max_charge_power_kw: Decimal = Decimal("3")
+    max_discharge_power_kw: Decimal = Decimal("2.4")
+    battery_target_energy_kwh: Decimal = Decimal("10")
     vat_market_import: bool = True
     vat_import_markup: bool = True
     vat_energy_tax: bool = True
@@ -81,6 +84,15 @@ class PriceSettings:
             raise ValueError("Optimisation duration must be at least 15 minutes")
         if self.optimization_duration_minutes % 15:
             raise ValueError("Optimisation duration must use 15-minute increments")
+        if (
+            min(
+                self.max_charge_power_kw,
+                self.max_discharge_power_kw,
+                self.battery_target_energy_kwh,
+            )
+            <= 0
+        ):
+            raise ValueError("Battery power limits and target energy must be positive")
 
     @property
     def vat_multiplier(self) -> Decimal:
@@ -114,6 +126,21 @@ class BatteryArbitrageOpportunity:
     discharge_window: PriceWindow
     effective_charge_cost: Decimal
     profit_per_kwh: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class BatteryEnergyPlan:
+    """Power-limited plan for a target amount of delivered energy."""
+
+    charge_window: PriceWindow
+    discharge_window: PriceWindow
+    charge_slot_kwh: tuple[Decimal, ...]
+    discharge_slot_kwh: tuple[Decimal, ...]
+    grid_energy_kwh: Decimal
+    delivered_energy_kwh: Decimal
+    charge_cost_eur: Decimal
+    avoided_import_eur: Decimal
+    net_value_eur: Decimal
 
 
 @dataclass(frozen=True, slots=True)

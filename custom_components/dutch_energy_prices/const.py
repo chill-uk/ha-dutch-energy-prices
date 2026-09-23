@@ -21,6 +21,9 @@ CONF_SUPPLIER_IMPORT_MARKUP = "supplier_import_markup"
 CONF_SUPPLIER_EXPORT_ADJUSTMENT = "supplier_export_adjustment"
 CONF_BATTERY_EFFICIENCY = "battery_round_trip_efficiency"
 CONF_OPTIMIZATION_DURATION = "optimization_duration_minutes"
+CONF_MAX_CHARGE_POWER = "max_charge_power_kw"
+CONF_MAX_DISCHARGE_POWER = "max_discharge_power_kw"
+CONF_BATTERY_TARGET_ENERGY = "battery_target_energy_kwh"
 CONF_CURRENCY_DISPLAY = "currency_display"
 CONF_VAT_MARKET_IMPORT = "vat_market_import"
 CONF_VAT_IMPORT_MARKUP = "vat_import_markup"
@@ -108,6 +111,9 @@ DEFAULT_IMPORT_MARKUP = Decimal("0")
 DEFAULT_EXPORT_ADJUSTMENT = Decimal("0")
 DEFAULT_BATTERY_EFFICIENCY = Decimal("0.85")
 DEFAULT_OPTIMIZATION_DURATION_MINUTES = 120
+DEFAULT_MAX_CHARGE_POWER = Decimal("3")
+DEFAULT_MAX_DISCHARGE_POWER = Decimal("2.4")
+DEFAULT_BATTERY_TARGET_ENERGY = Decimal("10")
 
 
 def values_for_profile(profile: TaxProfile, current: dict[str, Any]) -> dict[str, Any]:

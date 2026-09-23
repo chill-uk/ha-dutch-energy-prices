@@ -18,6 +18,8 @@ A Home Assistant custom integration for Dutch dynamic electricity contracts, des
   grid-arbitrage value and the value of storing solar instead of exporting it.
 - Supports an editable optimisation duration from 15 minutes to 24 hours in
   native 15-minute increments.
+- Plans a configurable delivered-energy target using separate maximum charging
+  and discharging power limits, including partial 15-minute slots.
 
 The fixed annual energy-tax rebate is deliberately excluded because it does not alter the marginal cost of charging one additional kWh.
 
@@ -103,6 +105,9 @@ Copy `custom_components/dutch_energy_prices` into your Home Assistant `custom_co
 - `sensor.dutch_energy_best_battery_discharge_period`
 - `sensor.dutch_energy_estimated_arbitrage_value`
 - `sensor.dutch_energy_solar_storage_value`
+- `sensor.dutch_energy_battery_plan_charge_start`
+- `sensor.dutch_energy_battery_plan_discharge_start`
+- `sensor.dutch_energy_battery_plan_value`
 
 Home Assistant may append a suffix if one of these entity IDs already exists.
 
@@ -131,6 +136,24 @@ Values may be negative. The opportunity sensors expose `profitable` or
 from the least-bad unprofitable window. Calculations use the currently available
 day-ahead forecast and do not control a battery. The forecast-value sensors do
 not opt in to Home Assistant's long-term measurement statistics.
+
+The separate battery plan takes a delivered-energy target (default 10 kWh),
+maximum grid charging power (default 3 kW), maximum battery output power
+(default 2.4 kW), and round-trip efficiency. All three new values are editable
+on the second screen under **Settings → Devices & services → Dutch Energy Prices
+→ Configure**. It finds ordered, contiguous 15-minute charging and discharging
+windows, using full power except for one partial slot in each window. The
+window sensors expose per-slot `energy_kwh` and `power_kw`; the plan value is
+the estimated total savings in euros. At 85% efficiency, delivering 10 kWh
+requires approximately 11.765 kWh from the grid: 16 charging slots at up to
+3 kW and 17 discharging slots at up to 2.4 kW.
+
+This is a price and power feasibility estimate. It assumes the battery has
+room to charge and that household demand can consume all planned output. The
+integration does not yet read battery state of charge, usable capacity or a
+household-load forecast. If household demand is lower than battery output,
+actual savings will be lower; export revenue, import/export constraints, solar
+forecast and battery control are outside this plan.
 
 ## Roadmap
 

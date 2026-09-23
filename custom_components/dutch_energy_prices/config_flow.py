@@ -13,9 +13,12 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_BATTERY_EFFICIENCY,
+    CONF_BATTERY_TARGET_ENERGY,
     CONF_CURRENCY_DISPLAY,
     CONF_ENERGY_TAX,
     CONF_ENTSOE_API_TOKEN,
+    CONF_MAX_CHARGE_POWER,
+    CONF_MAX_DISCHARGE_POWER,
     CONF_OPTIMIZATION_DURATION,
     CONF_PRICE_SOURCE,
     CONF_SOURCE_ENTITY,
@@ -30,8 +33,11 @@ from .const import (
     CONF_VAT_MARKET_IMPORT,
     CONF_VAT_PERCENTAGE,
     DEFAULT_BATTERY_EFFICIENCY,
+    DEFAULT_BATTERY_TARGET_ENERGY,
     DEFAULT_EXPORT_ADJUSTMENT,
     DEFAULT_IMPORT_MARKUP,
+    DEFAULT_MAX_CHARGE_POWER,
+    DEFAULT_MAX_DISCHARGE_POWER,
     DEFAULT_OPTIMIZATION_DURATION_MINUTES,
     DOMAIN,
     TAX_PROFILE_DEFAULTS,
@@ -113,6 +119,20 @@ def _details_schema(
                 CONF_BATTERY_EFFICIENCY,
                 default=values.get(CONF_BATTERY_EFFICIENCY, float(DEFAULT_BATTERY_EFFICIENCY)),
             ): _number(DEFAULT_BATTERY_EFFICIENCY, minimum=0.01, maximum=1),
+            vol.Required(
+                CONF_MAX_CHARGE_POWER,
+                default=values.get(CONF_MAX_CHARGE_POWER, float(DEFAULT_MAX_CHARGE_POWER)),
+            ): _number(DEFAULT_MAX_CHARGE_POWER, minimum=0.01),
+            vol.Required(
+                CONF_MAX_DISCHARGE_POWER,
+                default=values.get(CONF_MAX_DISCHARGE_POWER, float(DEFAULT_MAX_DISCHARGE_POWER)),
+            ): _number(DEFAULT_MAX_DISCHARGE_POWER, minimum=0.01),
+            vol.Required(
+                CONF_BATTERY_TARGET_ENERGY,
+                default=values.get(
+                    CONF_BATTERY_TARGET_ENERGY, float(DEFAULT_BATTERY_TARGET_ENERGY)
+                ),
+            ): _number(DEFAULT_BATTERY_TARGET_ENERGY, minimum=0.01),
             vol.Required(
                 CONF_OPTIMIZATION_DURATION,
                 default=values.get(

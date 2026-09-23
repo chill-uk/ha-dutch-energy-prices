@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 
 from .models import (
     BatteryArbitrageOpportunity,
+    BatteryEnergyPlan,
     MarketPricePeriod,
     PricePeriod,
     PriceSettings,
@@ -127,6 +128,82 @@ def best_battery_arbitrage(
             )
             if best is None or candidate.profit_per_kwh > best.profit_per_kwh:
                 best = candidate
+    return best
+
+
+def _allocate_window(
+    window: PriceWindow, energy_kwh: Decimal, per_slot_kwh: Decimal, *, charge: bool
+) -> tuple[tuple[Decimal, ...], Decimal]:
+    """Fill full slots and place the partial slot at the least costly price."""
+    remainder = energy_kwh % per_slot_kwh
+    allocation = [per_slot_kwh] * len(window.periods)
+    if remainder:
+        # A charge window benefits from reducing its most expensive slot;
+        # a discharge window benefits from reducing its least valuable slot.
+        partial_index = (max if charge else min)(
+            range(len(window.periods)), key=lambda index: window.periods[index].import_price
+        )
+        allocation[partial_index] = remainder
+    prices = (period.import_price for period in window.periods)
+    value = sum(
+        (amount * price for amount, price in zip(allocation, prices, strict=True)), Decimal("0")
+    )
+    return tuple(allocation), value
+
+
+def best_battery_energy_plan(
+    periods: Iterable[PricePeriod],
+    target_delivered_kwh: Decimal,
+    max_charge_kw: Decimal,
+    max_discharge_kw: Decimal,
+    efficiency: Decimal,
+    *,
+    not_before: datetime | None = None,
+) -> BatteryEnergyPlan | None:
+    """Maximise avoided import less charging cost for a fixed energy target.
+
+    Uses the fewest contiguous 15-minute slots at the configured power caps.
+    Output assumes enough household demand to use every discharged kWh.
+    """
+    _validate_efficiency(efficiency)
+    if min(target_delivered_kwh, max_charge_kw, max_discharge_kw) <= 0:
+        raise ValueError("Target energy and charge/discharge power must be positive")
+    grid_kwh = target_delivered_kwh / efficiency
+    charge_per_slot = max_charge_kw / Decimal("4")
+    discharge_per_slot = max_discharge_kw / Decimal("4")
+    charge_slots = int((grid_kwh / charge_per_slot).to_integral_value(rounding=ROUND_CEILING))
+    discharge_slots = int(
+        (target_delivered_kwh / discharge_per_slot).to_integral_value(rounding=ROUND_CEILING)
+    )
+    available = tuple(periods)
+    charge_windows = _contiguous_windows(available, charge_slots, not_before=not_before)
+    discharge_windows = _contiguous_windows(available, discharge_slots, not_before=not_before)
+    charge_candidates = [
+        (window, *_allocate_window(window, grid_kwh, charge_per_slot, charge=True))
+        for window in charge_windows
+    ]
+    discharge_candidates = [
+        (window, *_allocate_window(window, target_delivered_kwh, discharge_per_slot, charge=False))
+        for window in discharge_windows
+    ]
+    best: BatteryEnergyPlan | None = None
+    for charge_window, charge_allocation, charge_cost in charge_candidates:
+        for discharge_window, discharge_allocation, avoided_import in discharge_candidates:
+            if discharge_window.start < charge_window.end:
+                continue
+            net_value = avoided_import - charge_cost
+            if best is None or net_value > best.net_value_eur:
+                best = BatteryEnergyPlan(
+                    charge_window=charge_window,
+                    discharge_window=discharge_window,
+                    charge_slot_kwh=charge_allocation,
+                    discharge_slot_kwh=discharge_allocation,
+                    grid_energy_kwh=grid_kwh,
+                    delivered_energy_kwh=target_delivered_kwh,
+                    charge_cost_eur=charge_cost,
+                    avoided_import_eur=avoided_import,
+                    net_value_eur=net_value,
+                )
     return best
 
 

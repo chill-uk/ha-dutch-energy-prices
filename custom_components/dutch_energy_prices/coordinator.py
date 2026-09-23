@@ -59,7 +59,10 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
 
     from .const import (
         CONF_BATTERY_EFFICIENCY,
+        CONF_BATTERY_TARGET_ENERGY,
         CONF_ENERGY_TAX,
+        CONF_MAX_CHARGE_POWER,
+        CONF_MAX_DISCHARGE_POWER,
         CONF_OPTIMIZATION_DURATION,
         CONF_SUPPLIER_EXPORT_ADJUSTMENT,
         CONF_SUPPLIER_IMPORT_MARKUP,
@@ -69,6 +72,9 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         CONF_VAT_MARKET_EXPORT,
         CONF_VAT_MARKET_IMPORT,
         CONF_VAT_PERCENTAGE,
+        DEFAULT_BATTERY_TARGET_ENERGY,
+        DEFAULT_MAX_CHARGE_POWER,
+        DEFAULT_MAX_DISCHARGE_POWER,
         DEFAULT_OPTIMIZATION_DURATION_MINUTES,
     )
 
@@ -80,6 +86,15 @@ def settings_from_config(config: dict[str, Any]) -> PriceSettings:
         battery_round_trip_efficiency=Decimal(str(config[CONF_BATTERY_EFFICIENCY])),
         optimization_duration_minutes=int(
             config.get(CONF_OPTIMIZATION_DURATION, DEFAULT_OPTIMIZATION_DURATION_MINUTES)
+        ),
+        max_charge_power_kw=Decimal(
+            str(config.get(CONF_MAX_CHARGE_POWER, DEFAULT_MAX_CHARGE_POWER))
+        ),
+        max_discharge_power_kw=Decimal(
+            str(config.get(CONF_MAX_DISCHARGE_POWER, DEFAULT_MAX_DISCHARGE_POWER))
+        ),
+        battery_target_energy_kwh=Decimal(
+            str(config.get(CONF_BATTERY_TARGET_ENERGY, DEFAULT_BATTERY_TARGET_ENERGY))
         ),
         vat_market_import=bool(config[CONF_VAT_MARKET_IMPORT]),
         vat_import_markup=bool(config[CONF_VAT_IMPORT_MARKUP]),

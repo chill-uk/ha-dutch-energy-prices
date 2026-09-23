@@ -7,6 +7,7 @@ import pytest
 
 from custom_components.dutch_energy_prices.calculations import (
     best_battery_arbitrage,
+    best_battery_energy_plan,
     best_solar_storage,
     calculate_period,
     calculate_periods,
@@ -195,6 +196,81 @@ def test_best_battery_arbitrage_does_not_cross_data_gap() -> None:
 
     assert best_battery_arbitrage(periods, 2, Decimal("0.8")) is not None
     assert best_battery_arbitrage(periods, 3, Decimal("0.8")) is None
+
+
+def test_power_limited_plan_uses_exact_energy_and_ordered_quarter_hours() -> None:
+    periods = tuple(
+        calculate_period(
+            raw_period("0.10" if index < 16 else "0.40", index * 15),
+            settings(
+                vat_percentage=Decimal("0"),
+                energy_tax=Decimal("0"),
+                supplier_import_markup=Decimal("0"),
+            ),
+        )
+        for index in range(33)
+    )
+
+    plan = best_battery_energy_plan(
+        periods, Decimal("10"), Decimal("3"), Decimal("2.4"), Decimal("0.85")
+    )
+
+    assert plan is not None
+    assert len(plan.charge_slot_kwh) == 16
+    assert len(plan.discharge_slot_kwh) == 17
+    assert plan.charge_window.end == plan.discharge_window.start
+    assert sum(plan.charge_slot_kwh) == plan.grid_energy_kwh == Decimal("10") / Decimal("0.85")
+    assert sum(plan.discharge_slot_kwh) == Decimal("10")
+    assert max(plan.charge_slot_kwh) <= Decimal("0.75")
+    assert max(plan.discharge_slot_kwh) <= Decimal("0.6")
+    assert plan.net_value_eur == plan.avoided_import_eur - plan.charge_cost_eur
+
+
+def test_power_limited_plan_allocates_partial_slot_at_best_price() -> None:
+    prices = ["0.10", "0.50", "0.40", "0.30"]
+    periods = tuple(
+        calculate_period(
+            raw_period(price, index * 15),
+            settings(
+                vat_percentage=Decimal("0"),
+                energy_tax=Decimal("0"),
+                supplier_import_markup=Decimal("0"),
+            ),
+        )
+        for index, price in enumerate(prices)
+    )
+    plan = best_battery_energy_plan(
+        periods, Decimal("0.75"), Decimal("2"), Decimal("2"), Decimal("1")
+    )
+
+    assert plan is not None
+    assert plan.charge_slot_kwh == (Decimal("0.5"), Decimal("0.25"))
+    assert plan.discharge_slot_kwh == (Decimal("0.5"), Decimal("0.25"))
+    assert plan.charge_cost_eur == Decimal("0.175")
+    assert plan.avoided_import_eur == Decimal("0.275")
+    assert plan.net_value_eur == Decimal("0.100")
+
+
+def test_power_limited_plan_requires_enough_contiguous_slots() -> None:
+    periods = tuple(
+        calculate_period(raw_period("0.10", index * 15), settings()) for index in (0, 15, 45, 60)
+    )
+    assert (
+        best_battery_energy_plan(periods, Decimal("1"), Decimal("2"), Decimal("2"), Decimal("1"))
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "target,charge,discharge", [("0", "3", "2.4"), ("10", "0", "2.4"), ("10", "3", "-1")]
+)
+def test_power_limited_plan_rejects_invalid_limits(
+    target: str, charge: str, discharge: str
+) -> None:
+    with pytest.raises(ValueError, match="positive"):
+        best_battery_energy_plan(
+            (), Decimal(target), Decimal(charge), Decimal(discharge), Decimal("0.85")
+        )
 
 
 def test_best_solar_storage_compares_current_export_with_later_avoided_import() -> None:

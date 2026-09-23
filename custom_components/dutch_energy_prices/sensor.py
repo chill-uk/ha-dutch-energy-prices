@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 
 from .calculations import (
     best_battery_arbitrage,
+    best_battery_energy_plan,
     best_solar_storage,
     cheapest_window,
     current_period,
@@ -41,6 +42,7 @@ from .const import (
 from .coordinator import DutchEnergyPricesCoordinator
 from .models import (
     BatteryArbitrageOpportunity,
+    BatteryEnergyPlan,
     PricePeriod,
     PriceWindow,
     SolarStorageOpportunity,
@@ -136,6 +138,9 @@ async def async_setup_entry(
             ),
             DutchArbitrageValueSensor(coordinator, entry, currency),
             DutchSolarStorageValueSensor(coordinator, entry, currency),
+            DutchBatteryPlanWindowSensor(coordinator, entry, "charge"),
+            DutchBatteryPlanWindowSensor(coordinator, entry, "discharge"),
+            DutchBatteryPlanValueSensor(coordinator, entry),
         ]
     )
 
@@ -442,4 +447,99 @@ class DutchSolarStorageValueSensor(DutchEnergyBaseSensor):
             "round_trip_efficiency": str(self.coordinator.settings.battery_round_trip_efficiency),
             "worth_storing": opportunity.value_per_kwh > 0,
             "price_unit": _price_unit(self._currency),
+        }
+
+
+def _battery_energy_plan(coordinator: DutchEnergyPricesCoordinator) -> BatteryEnergyPlan | None:
+    settings = coordinator.settings
+    return best_battery_energy_plan(
+        coordinator.data.periods,
+        settings.battery_target_energy_kwh,
+        settings.max_charge_power_kw,
+        settings.max_discharge_power_kw,
+        settings.battery_round_trip_efficiency,
+        not_before=dt_util.utcnow(),
+    )
+
+
+class DutchBatteryPlanWindowSensor(DutchEnergyBaseSensor):
+    """Show a feasible power-limited charge or discharge window."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: DutchEnergyPricesCoordinator,
+        entry: ConfigEntry,
+        kind: Literal["charge", "discharge"],
+    ) -> None:
+        key = f"battery_plan_{kind}_start"
+        super().__init__(coordinator, entry, key)
+        self._attr_translation_key = key
+        self._kind = kind
+
+    @property
+    def native_value(self) -> datetime | None:
+        plan = _battery_energy_plan(self.coordinator)
+        if plan is None:
+            return None
+        return (plan.charge_window if self._kind == "charge" else plan.discharge_window).start
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        plan = _battery_energy_plan(self.coordinator)
+        if plan is None:
+            return None
+        window = plan.charge_window if self._kind == "charge" else plan.discharge_window
+        allocation = plan.charge_slot_kwh if self._kind == "charge" else plan.discharge_slot_kwh
+        return {
+            "end": window.end.isoformat(),
+            "energy_kwh": str(
+                plan.grid_energy_kwh if self._kind == "charge" else plan.delivered_energy_kwh
+            ),
+            "max_power_kw": str(
+                self.coordinator.settings.max_charge_power_kw
+                if self._kind == "charge"
+                else self.coordinator.settings.max_discharge_power_kw
+            ),
+            "slots": [
+                {
+                    "start": period.start.isoformat(),
+                    "energy_kwh": str(amount),
+                    "power_kw": str(amount * 4),
+                }
+                for period, amount in zip(window.periods, allocation, strict=True)
+            ],
+        }
+
+
+class DutchBatteryPlanValueSensor(DutchEnergyBaseSensor):
+    """Show estimated EUR savings for the entire planned energy transfer."""
+
+    _attr_native_unit_of_measurement = "€"
+    _attr_suggested_display_precision = 3
+
+    def __init__(self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "battery_plan_value")
+        self._attr_translation_key = "battery_plan_value"
+
+    @property
+    def native_value(self) -> Decimal | None:
+        plan = _battery_energy_plan(self.coordinator)
+        return plan.net_value_eur if plan is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        plan = _battery_energy_plan(self.coordinator)
+        if plan is None:
+            return None
+        return {
+            "grid_energy_kwh": str(plan.grid_energy_kwh),
+            "delivered_energy_kwh": str(plan.delivered_energy_kwh),
+            "charge_cost_eur": str(plan.charge_cost_eur),
+            "avoided_import_eur": str(plan.avoided_import_eur),
+            "charge_start": plan.charge_window.start.isoformat(),
+            "discharge_start": plan.discharge_window.start.isoformat(),
+            "profitable": plan.net_value_eur > 0,
+            "assumes_full_household_use": True,
         }
