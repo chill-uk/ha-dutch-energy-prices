@@ -23,7 +23,7 @@ The quickest way to install this integration is via [HACS](https://github.com/ha
 1. Click the button above to add this repository to HACS as a custom integration.
 2. Install `Dutch Energy Prices` from HACS.
 4. In Home Assistant, go to `Settings -> Devices & Services`.
-5. Add the `EcoFlow P1 Energy Tracker` integration.
+5. Add the `Dutch Energy Prices` integration.
 6. Restart Home Assistant.
 7. Select `Dutch Energy Prices` and choose `ENTSO-E` or a compatible
    15-minute source sensor.
