@@ -16,8 +16,6 @@ The quickest way to install this integration is via [HACS](https://github.com/ha
 
 [![Add to HACS via My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=chill-uk&repository=ha-dutch-energy-prices&category=integration)
 
-
-
 ### HACS custom repository
 
 1. Click the button above to add this repository to HACS as a custom integration.
