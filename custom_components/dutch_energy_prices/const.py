@@ -20,12 +20,39 @@ CONF_ENERGY_TAX = "energy_tax"
 CONF_SUPPLIER_IMPORT_MARKUP = "supplier_import_markup"
 CONF_SUPPLIER_EXPORT_ADJUSTMENT = "supplier_export_adjustment"
 CONF_BATTERY_EFFICIENCY = "battery_round_trip_efficiency"
+CONF_BATTERY_CHARGE_EFFICIENCY = "battery_charge_efficiency"
+CONF_BATTERY_DISCHARGE_EFFICIENCY = "battery_discharge_efficiency"
 CONF_OPTIMIZATION_DURATION = "optimization_duration_minutes"
 CONF_MAX_CHARGE_POWER = "max_charge_power_kw"
 CONF_MAX_DISCHARGE_POWER = "max_discharge_power_kw"
 CONF_BATTERY_TARGET_ENERGY = "battery_target_energy_kwh"
 CONF_BATTERY_SOC_ENTITY = "battery_soc_entity"
+CONF_BATTERY_SOC_ENTITIES = "battery_soc_entities"
+CONF_BATTERY_CAPACITY_ENTITIES = "battery_capacity_entities"
+CONF_BATTERY_SOH_ENTITIES = "battery_soh_entities"
+CONF_BATTERY_STORED_ENERGY_ENTITIES = "battery_stored_energy_entities"
+CONF_BATTERY_POWER_ENTITIES = "battery_power_entities"
 CONF_HOUSEHOLD_LOAD_ENTITY = "household_load_entity"
+CONF_GRID_POWER_ENTITY = "grid_power_entity"
+CONF_PV_POWER_ENTITY = "pv_power_entity"
+CONF_SOLAR_FORECAST_ENTITY = "solar_forecast_entity"
+CONF_SOLAR_FORECAST_ENTITIES = "solar_forecast_entities"
+CONF_SOLAR_FORECAST_ATTRIBUTE = "solar_forecast_attribute"
+CONF_SOLAR_FORECAST_STRATEGY = "solar_forecast_strategy"
+CONF_SOLAR_CONFIDENCE = "solar_confidence_percent"
+CONF_BATTERY_OPERATING_COST = "battery_operating_cost"
+CONF_MINIMUM_PROFIT = "minimum_profit"
+CONF_ALLOW_GRID_EXPORT = "allow_grid_export"
+CONF_ACTION_CONFIRMATION_UPDATES = "action_confirmation_updates"
+CONF_MINIMUM_ACTION_MINUTES = "minimum_action_minutes"
+CONF_TELEMETRY_STALE_MINUTES = "telemetry_stale_minutes"
+CONF_CONTROL_ENABLED = "control_enabled"
+CONF_CONTROL_DRY_RUN = "control_dry_run"
+CONF_CHARGE_TASK_ENTITY = "charge_task_entity"
+CONF_DISCHARGE_TASK_ENTITY = "discharge_task_entity"
+CONF_CHARGE_POWER_ENTITY = "charge_power_entity"
+CONF_DISCHARGE_POWER_ENTITY = "discharge_power_entity"
+CONF_MANUAL_OVERRIDE_ENTITY = "manual_override_entity"
 CONF_BATTERY_USABLE_CAPACITY = "battery_usable_capacity_kwh"
 CONF_BATTERY_MIN_RESERVE = "battery_min_reserve_percent"
 CONF_BATTERY_RESERVE_BUFFER = "battery_reserve_buffer_kwh"
@@ -81,6 +108,14 @@ class CurrencyDisplay(StrEnum):
     CENT_PER_KWH = "cent_per_kwh"
 
 
+class SolarForecastStrategy(StrEnum):
+    """How multiple solar forecasts are combined."""
+
+    CONSERVATIVE = "conservative"
+    AVERAGE = "average"
+    OPTIMISTIC = "optimistic"
+
+
 CURRENCY_UNITS = {
     CurrencyDisplay.EUR_PER_KWH: UNIT_EUR_PER_KWH,
     CurrencyDisplay.CENT_PER_KWH: UNIT_CENT_PER_KWH,
@@ -115,6 +150,10 @@ TAX_PROFILE_DEFAULTS: dict[TaxProfile, dict[str, Decimal]] = {
 DEFAULT_IMPORT_MARKUP = Decimal("0")
 DEFAULT_EXPORT_ADJUSTMENT = Decimal("0")
 DEFAULT_BATTERY_EFFICIENCY = Decimal("0.85")
+DEFAULT_BATTERY_CHARGE_EFFICIENCY = Decimal("0.90")
+DEFAULT_BATTERY_DISCHARGE_EFFICIENCY = (
+    DEFAULT_BATTERY_EFFICIENCY / DEFAULT_BATTERY_CHARGE_EFFICIENCY
+)
 DEFAULT_OPTIMIZATION_DURATION_MINUTES = 120
 DEFAULT_MAX_CHARGE_POWER = Decimal("3")
 DEFAULT_MAX_DISCHARGE_POWER = Decimal("2.4")
@@ -122,6 +161,12 @@ DEFAULT_BATTERY_TARGET_ENERGY = Decimal("10")
 DEFAULT_BATTERY_USABLE_CAPACITY = Decimal("17")
 DEFAULT_BATTERY_MIN_RESERVE = Decimal("15")
 DEFAULT_BATTERY_RESERVE_BUFFER = Decimal("1")
+DEFAULT_SOLAR_CONFIDENCE = Decimal("80")
+DEFAULT_BATTERY_OPERATING_COST = Decimal("0.02")
+DEFAULT_MINIMUM_PROFIT = Decimal("0.01")
+DEFAULT_ACTION_CONFIRMATION_UPDATES = 2
+DEFAULT_MINIMUM_ACTION_MINUTES = 5
+DEFAULT_TELEMETRY_STALE_MINUTES = 10
 
 
 def values_for_profile(profile: TaxProfile, current: dict[str, Any]) -> dict[str, Any]:

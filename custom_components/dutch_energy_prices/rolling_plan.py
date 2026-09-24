@@ -24,6 +24,43 @@ class RollingDecision:
     estimated_value_eur: Decimal
 
 
+@dataclass(slots=True)
+class ActionStabilizer:
+    """Prevent short telemetry changes from repeatedly flipping an action."""
+
+    confirmations: int = 2
+    minimum_dwell: timedelta = timedelta(minutes=5)
+    action: str | None = None
+    action_since: datetime | None = None
+    candidate: str | None = None
+    candidate_updates: int = 0
+
+    def update(self, proposed: str | None, now: datetime) -> str | None:
+        """Publish a change only after confirmation and minimum dwell time."""
+        if proposed is None:
+            return self.action
+        if self.action is None:
+            self.action = proposed
+            self.action_since = now
+            return self.action
+        if proposed == self.action:
+            self.candidate = None
+            self.candidate_updates = 0
+            return self.action
+        if proposed != self.candidate:
+            self.candidate = proposed
+            self.candidate_updates = 1
+        else:
+            self.candidate_updates += 1
+        dwell_complete = self.action_since is None or now - self.action_since >= self.minimum_dwell
+        if self.candidate_updates >= self.confirmations and dwell_complete:
+            self.action = proposed
+            self.action_since = now
+            self.candidate = None
+            self.candidate_updates = 0
+        return self.action
+
+
 def rolling_decision(
     periods: tuple[PricePeriod, ...],
     now: datetime,

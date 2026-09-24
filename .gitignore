@@ -1,6 +1,6 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+uv.lock
 *.py[cod]
 .venv/
-

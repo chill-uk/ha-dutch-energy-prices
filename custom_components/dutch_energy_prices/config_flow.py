@@ -12,33 +12,63 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_ACTION_CONFIRMATION_UPDATES,
+    CONF_ALLOW_GRID_EXPORT,
+    CONF_BATTERY_CAPACITY_ENTITIES,
+    CONF_BATTERY_CHARGE_EFFICIENCY,
+    CONF_BATTERY_DISCHARGE_EFFICIENCY,
     CONF_BATTERY_EFFICIENCY,
     CONF_BATTERY_MIN_RESERVE,
+    CONF_BATTERY_OPERATING_COST,
+    CONF_BATTERY_POWER_ENTITIES,
     CONF_BATTERY_RESERVE_BUFFER,
+    CONF_BATTERY_SOC_ENTITIES,
     CONF_BATTERY_SOC_ENTITY,
+    CONF_BATTERY_SOH_ENTITIES,
+    CONF_BATTERY_STORED_ENERGY_ENTITIES,
     CONF_BATTERY_TARGET_ENERGY,
     CONF_BATTERY_USABLE_CAPACITY,
+    CONF_CHARGE_POWER_ENTITY,
+    CONF_CHARGE_TASK_ENTITY,
+    CONF_CONTROL_DRY_RUN,
+    CONF_CONTROL_ENABLED,
     CONF_CURRENCY_DISPLAY,
+    CONF_DISCHARGE_POWER_ENTITY,
+    CONF_DISCHARGE_TASK_ENTITY,
     CONF_ENERGY_TAX,
     CONF_ENTSOE_API_TOKEN,
+    CONF_GRID_POWER_ENTITY,
     CONF_HOUSEHOLD_LOAD_ENTITY,
+    CONF_MANUAL_OVERRIDE_ENTITY,
     CONF_MAX_CHARGE_POWER,
     CONF_MAX_DISCHARGE_POWER,
+    CONF_MINIMUM_ACTION_MINUTES,
+    CONF_MINIMUM_PROFIT,
     CONF_OPTIMIZATION_DURATION,
     CONF_PRICE_SOURCE,
+    CONF_PV_POWER_ENTITY,
+    CONF_SOLAR_CONFIDENCE,
+    CONF_SOLAR_FORECAST_ATTRIBUTE,
+    CONF_SOLAR_FORECAST_ENTITIES,
+    CONF_SOLAR_FORECAST_ENTITY,
+    CONF_SOLAR_FORECAST_STRATEGY,
     CONF_SOURCE_ENTITY,
     CONF_SOURCE_PRICE_UNIT,
     CONF_SUPPLIER_EXPORT_ADJUSTMENT,
     CONF_SUPPLIER_IMPORT_MARKUP,
     CONF_TAX_PROFILE,
+    CONF_TELEMETRY_STALE_MINUTES,
     CONF_VAT_ENERGY_TAX,
     CONF_VAT_EXPORT_ADJUSTMENT,
     CONF_VAT_IMPORT_MARKUP,
     CONF_VAT_MARKET_EXPORT,
     CONF_VAT_MARKET_IMPORT,
     CONF_VAT_PERCENTAGE,
+    DEFAULT_ACTION_CONFIRMATION_UPDATES,
+    DEFAULT_BATTERY_CHARGE_EFFICIENCY,
     DEFAULT_BATTERY_EFFICIENCY,
     DEFAULT_BATTERY_MIN_RESERVE,
+    DEFAULT_BATTERY_OPERATING_COST,
     DEFAULT_BATTERY_RESERVE_BUFFER,
     DEFAULT_BATTERY_TARGET_ENERGY,
     DEFAULT_BATTERY_USABLE_CAPACITY,
@@ -46,11 +76,16 @@ from .const import (
     DEFAULT_IMPORT_MARKUP,
     DEFAULT_MAX_CHARGE_POWER,
     DEFAULT_MAX_DISCHARGE_POWER,
+    DEFAULT_MINIMUM_ACTION_MINUTES,
+    DEFAULT_MINIMUM_PROFIT,
     DEFAULT_OPTIMIZATION_DURATION_MINUTES,
+    DEFAULT_SOLAR_CONFIDENCE,
+    DEFAULT_TELEMETRY_STALE_MINUTES,
     DOMAIN,
     TAX_PROFILE_DEFAULTS,
     CurrencyDisplay,
     PriceSource,
+    SolarForecastStrategy,
     SourcePriceUnit,
     TaxProfile,
     values_for_profile,
@@ -66,12 +101,34 @@ def _number(default: Decimal, *, minimum: float | None = None, maximum: float | 
     return selector.NumberSelector(selector.NumberSelectorConfig(**config))
 
 
+def _entity(values: dict[str, Any], key: str, *, multiple: bool = False) -> tuple[Any, Any]:
+    """Build an optional sensor selector while retaining existing selections."""
+    options = {"default": values[key]} if values.get(key) else {}
+    return (
+        vol.Optional(key, **options),
+        selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", multiple=multiple)),
+    )
+
+
+def _typed_entity(values: dict[str, Any], key: str, domain: str) -> tuple[Any, Any]:
+    """Build an optional entity selector for a control domain."""
+    options = {"default": values[key]} if values.get(key) else {}
+    return (
+        vol.Optional(key, **options),
+        selector.EntitySelector(selector.EntitySelectorConfig(domain=domain)),
+    )
+
+
 def _details_schema(
     profile: TaxProfile,
     source: PriceSource,
     values: dict[str, Any] | None = None,
 ) -> vol.Schema:
-    values = values or {}
+    values = dict(values or {})
+    if not values.get(CONF_BATTERY_SOC_ENTITIES) and values.get(CONF_BATTERY_SOC_ENTITY):
+        values[CONF_BATTERY_SOC_ENTITIES] = [values[CONF_BATTERY_SOC_ENTITY]]
+    if not values.get(CONF_SOLAR_FORECAST_ENTITIES) and values.get(CONF_SOLAR_FORECAST_ENTITY):
+        values[CONF_SOLAR_FORECAST_ENTITIES] = [values[CONF_SOLAR_FORECAST_ENTITY]]
     profile_defaults = TAX_PROFILE_DEFAULTS[profile]
     fields: dict[Any, Any] = {}
     if source is PriceSource.ENTSOE:
@@ -128,6 +185,21 @@ def _details_schema(
                 default=values.get(CONF_BATTERY_EFFICIENCY, float(DEFAULT_BATTERY_EFFICIENCY)),
             ): _number(DEFAULT_BATTERY_EFFICIENCY, minimum=0.01, maximum=1),
             vol.Required(
+                CONF_BATTERY_CHARGE_EFFICIENCY,
+                default=values.get(
+                    CONF_BATTERY_CHARGE_EFFICIENCY,
+                    float(DEFAULT_BATTERY_CHARGE_EFFICIENCY),
+                ),
+            ): _number(DEFAULT_BATTERY_CHARGE_EFFICIENCY, minimum=0.01, maximum=1),
+            vol.Optional(
+                CONF_BATTERY_DISCHARGE_EFFICIENCY,
+                **(
+                    {"default": values[CONF_BATTERY_DISCHARGE_EFFICIENCY]}
+                    if values.get(CONF_BATTERY_DISCHARGE_EFFICIENCY) is not None
+                    else {}
+                ),
+            ): _number(Decimal("0.95"), minimum=0.01, maximum=1),
+            vol.Required(
                 CONF_MAX_CHARGE_POWER,
                 default=values.get(CONF_MAX_CHARGE_POWER, float(DEFAULT_MAX_CHARGE_POWER)),
             ): _number(DEFAULT_MAX_CHARGE_POWER, minimum=0.01),
@@ -141,22 +213,6 @@ def _details_schema(
                     CONF_BATTERY_TARGET_ENERGY, float(DEFAULT_BATTERY_TARGET_ENERGY)
                 ),
             ): _number(DEFAULT_BATTERY_TARGET_ENERGY, minimum=0.01),
-            vol.Optional(
-                CONF_BATTERY_SOC_ENTITY,
-                **(
-                    {"default": values[CONF_BATTERY_SOC_ENTITY]}
-                    if values.get(CONF_BATTERY_SOC_ENTITY)
-                    else {}
-                ),
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Optional(
-                CONF_HOUSEHOLD_LOAD_ENTITY,
-                **(
-                    {"default": values[CONF_HOUSEHOLD_LOAD_ENTITY]}
-                    if values.get(CONF_HOUSEHOLD_LOAD_ENTITY)
-                    else {}
-                ),
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
             vol.Required(
                 CONF_BATTERY_USABLE_CAPACITY,
                 default=values.get(
@@ -173,6 +229,49 @@ def _details_schema(
                     CONF_BATTERY_RESERVE_BUFFER, float(DEFAULT_BATTERY_RESERVE_BUFFER)
                 ),
             ): _number(DEFAULT_BATTERY_RESERVE_BUFFER, minimum=0),
+            vol.Required(
+                CONF_SOLAR_CONFIDENCE,
+                default=values.get(CONF_SOLAR_CONFIDENCE, float(DEFAULT_SOLAR_CONFIDENCE)),
+            ): _number(DEFAULT_SOLAR_CONFIDENCE, minimum=0, maximum=100),
+            vol.Required(
+                CONF_BATTERY_OPERATING_COST,
+                default=values.get(
+                    CONF_BATTERY_OPERATING_COST, float(DEFAULT_BATTERY_OPERATING_COST)
+                ),
+            ): _number(DEFAULT_BATTERY_OPERATING_COST, minimum=0),
+            vol.Required(
+                CONF_MINIMUM_PROFIT,
+                default=values.get(CONF_MINIMUM_PROFIT, float(DEFAULT_MINIMUM_PROFIT)),
+            ): _number(DEFAULT_MINIMUM_PROFIT, minimum=0),
+            vol.Required(
+                CONF_ALLOW_GRID_EXPORT, default=values.get(CONF_ALLOW_GRID_EXPORT, False)
+            ): selector.BooleanSelector(),
+            vol.Required(
+                CONF_ACTION_CONFIRMATION_UPDATES,
+                default=values.get(
+                    CONF_ACTION_CONFIRMATION_UPDATES, DEFAULT_ACTION_CONFIRMATION_UPDATES
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1, max=10, step=1, mode=selector.NumberSelectorMode.BOX
+                )
+            ),
+            vol.Required(
+                CONF_MINIMUM_ACTION_MINUTES,
+                default=values.get(CONF_MINIMUM_ACTION_MINUTES, DEFAULT_MINIMUM_ACTION_MINUTES),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1, max=60, step=1, mode=selector.NumberSelectorMode.BOX
+                )
+            ),
+            vol.Required(
+                CONF_TELEMETRY_STALE_MINUTES,
+                default=values.get(CONF_TELEMETRY_STALE_MINUTES, DEFAULT_TELEMETRY_STALE_MINUTES),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1, max=60, step=1, mode=selector.NumberSelectorMode.BOX
+                )
+            ),
             vol.Required(
                 CONF_OPTIMIZATION_DURATION,
                 default=values.get(
@@ -205,13 +304,58 @@ def _details_schema(
             ): selector.BooleanSelector(),
         }
     )
+    for key, multiple in (
+        (CONF_BATTERY_SOC_ENTITIES, True),
+        (CONF_BATTERY_STORED_ENERGY_ENTITIES, True),
+        (CONF_BATTERY_CAPACITY_ENTITIES, True),
+        (CONF_BATTERY_SOH_ENTITIES, True),
+        (CONF_BATTERY_POWER_ENTITIES, True),
+        (CONF_HOUSEHOLD_LOAD_ENTITY, False),
+        (CONF_GRID_POWER_ENTITY, False),
+        (CONF_PV_POWER_ENTITY, False),
+        (CONF_SOLAR_FORECAST_ENTITIES, True),
+    ):
+        field, field_selector = _entity(values, key, multiple=multiple)
+        fields[field] = field_selector
+    fields[
+        vol.Optional(
+            CONF_SOLAR_FORECAST_ATTRIBUTE,
+            default=values.get(CONF_SOLAR_FORECAST_ATTRIBUTE, ""),
+        )
+    ] = selector.TextSelector()
+    fields[
+        vol.Required(
+            CONF_SOLAR_FORECAST_STRATEGY,
+            default=values.get(CONF_SOLAR_FORECAST_STRATEGY, SolarForecastStrategy.CONSERVATIVE),
+        )
+    ] = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[strategy.value for strategy in SolarForecastStrategy],
+            translation_key="solar_forecast_strategy",
+        )
+    )
+    fields[vol.Required(CONF_CONTROL_ENABLED, default=values.get(CONF_CONTROL_ENABLED, False))] = (
+        selector.BooleanSelector()
+    )
+    fields[vol.Required(CONF_CONTROL_DRY_RUN, default=values.get(CONF_CONTROL_DRY_RUN, True))] = (
+        selector.BooleanSelector()
+    )
+    for key, domain in (
+        (CONF_CHARGE_TASK_ENTITY, "switch"),
+        (CONF_DISCHARGE_TASK_ENTITY, "switch"),
+        (CONF_CHARGE_POWER_ENTITY, "number"),
+        (CONF_DISCHARGE_POWER_ENTITY, "number"),
+        (CONF_MANUAL_OVERRIDE_ENTITY, "input_boolean"),
+    ):
+        field, field_selector = _typed_entity(values, key, domain)
+        fields[field] = field_selector
     return vol.Schema(fields)
 
 
 class DutchEnergyPricesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the integration config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         self._base: dict[str, Any] = {}

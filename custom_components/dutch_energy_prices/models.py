@@ -65,6 +65,8 @@ class PriceSettings:
     supplier_import_markup: Decimal
     supplier_export_adjustment: Decimal
     battery_round_trip_efficiency: Decimal = Decimal("0.85")
+    battery_charge_efficiency: Decimal = Decimal("0.90")
+    battery_discharge_efficiency: Decimal | None = None
     optimization_duration_minutes: int = 120
     max_charge_power_kw: Decimal = Decimal("3")
     max_discharge_power_kw: Decimal = Decimal("2.4")
@@ -72,6 +74,13 @@ class PriceSettings:
     battery_usable_capacity_kwh: Decimal = Decimal("17")
     battery_min_reserve_percent: Decimal = Decimal("15")
     battery_reserve_buffer_kwh: Decimal = Decimal("1")
+    solar_confidence_percent: Decimal = Decimal("80")
+    battery_operating_cost: Decimal = Decimal("0.02")
+    minimum_profit: Decimal = Decimal("0.01")
+    allow_grid_export: bool = False
+    action_confirmation_updates: int = 2
+    minimum_action_minutes: int = 5
+    telemetry_stale_minutes: int = 10
     vat_market_import: bool = True
     vat_import_markup: bool = True
     vat_energy_tax: bool = True
@@ -83,6 +92,11 @@ class PriceSettings:
             raise ValueError("VAT percentage cannot be negative")
         if not Decimal("0") < self.battery_round_trip_efficiency <= Decimal("1"):
             raise ValueError("Battery round-trip efficiency must be above 0 and at most 1")
+        if not Decimal("0") < self.battery_charge_efficiency <= Decimal("1"):
+            raise ValueError("Battery charging efficiency must be above 0 and at most 1")
+        discharge_efficiency = self.resolved_discharge_efficiency
+        if not Decimal("0") < discharge_efficiency <= Decimal("1"):
+            raise ValueError("Battery discharging efficiency must be above 0 and at most 1")
         if self.optimization_duration_minutes < 15:
             raise ValueError("Optimisation duration must be at least 15 minutes")
         if self.optimization_duration_minutes % 15:
@@ -102,10 +116,133 @@ class PriceSettings:
             raise ValueError("Battery minimum reserve must be between 0 and 100%")
         if self.battery_reserve_buffer_kwh < 0:
             raise ValueError("Battery reserve buffer cannot be negative")
+        if not 0 <= self.solar_confidence_percent <= 100:
+            raise ValueError("Solar confidence must be between 0 and 100%")
+        if self.battery_operating_cost < 0 or self.minimum_profit < 0:
+            raise ValueError("Battery cost and minimum profit cannot be negative")
+        if (
+            min(
+                self.action_confirmation_updates,
+                self.minimum_action_minutes,
+                self.telemetry_stale_minutes,
+            )
+            < 1
+        ):
+            raise ValueError("Action stability values must be at least one")
 
     @property
     def vat_multiplier(self) -> Decimal:
         return Decimal("1") + self.vat_percentage / Decimal("100")
+
+    @property
+    def resolved_discharge_efficiency(self) -> Decimal:
+        """Return explicit discharge efficiency or derive it from round trip."""
+        if self.battery_discharge_efficiency is not None:
+            return self.battery_discharge_efficiency
+        return self.battery_round_trip_efficiency / self.battery_charge_efficiency
+
+    @property
+    def resolved_round_trip_efficiency(self) -> Decimal:
+        """Return the product of the independently modelled conversion stages."""
+        return self.battery_charge_efficiency * self.resolved_discharge_efficiency
+
+
+@dataclass(frozen=True, slots=True)
+class BatteryBank:
+    """Normalised live state for one battery bank."""
+
+    name: str
+    capacity_kwh: Decimal
+    stored_energy_kwh: Decimal
+    state_of_health_percent: Decimal = Decimal("100")
+    max_charge_power_kw: Decimal | None = None
+    max_discharge_power_kw: Decimal | None = None
+    capacity_source: str = "configured"
+
+    def __post_init__(self) -> None:
+        if self.capacity_kwh <= 0:
+            raise ValueError("Battery bank capacity must be positive")
+        if not 0 <= self.stored_energy_kwh <= self.capacity_kwh:
+            raise ValueError("Stored battery energy must be within bank capacity")
+        if not 0 < self.state_of_health_percent <= 100:
+            raise ValueError("Battery state of health must be above 0 and at most 100%")
+
+
+@dataclass(frozen=True, slots=True)
+class BatterySnapshot:
+    """Aggregate one or more independently measured battery banks."""
+
+    banks: tuple[BatteryBank, ...]
+
+    @property
+    def capacity_kwh(self) -> Decimal:
+        return sum((bank.capacity_kwh for bank in self.banks), Decimal("0"))
+
+    @property
+    def stored_energy_kwh(self) -> Decimal:
+        return sum((bank.stored_energy_kwh for bank in self.banks), Decimal("0"))
+
+    @property
+    def state_of_charge_percent(self) -> Decimal:
+        if not self.banks:
+            return Decimal("0")
+        return self.stored_energy_kwh / self.capacity_kwh * Decimal("100")
+
+
+@dataclass(frozen=True, slots=True)
+class EnergyForecastPeriod:
+    """A 15-minute solar and household-consumption forecast in kWh."""
+
+    start: datetime
+    end: datetime
+    solar_kwh: Decimal = Decimal("0")
+    load_kwh: Decimal = Decimal("0")
+
+    def __post_init__(self) -> None:
+        _validate_period(self.start, self.end)
+        if self.solar_kwh < 0 or self.load_kwh < 0:
+            raise ValueError("Forecast energy cannot be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class PlannedEnergySlot:
+    """Optimiser allocation for one native price period."""
+
+    start: datetime
+    end: datetime
+    grid_charge_kwh: Decimal = Decimal("0")
+    solar_charge_kwh: Decimal = Decimal("0")
+    self_discharge_kwh: Decimal = Decimal("0")
+    export_discharge_kwh: Decimal = Decimal("0")
+    value_eur: Decimal = Decimal("0")
+
+    @property
+    def action(self) -> str:
+        if self.grid_charge_kwh > 0:
+            return "charge"
+        if self.solar_charge_kwh > 0:
+            return "solar_charge"
+        if self.self_discharge_kwh > 0 or self.export_discharge_kwh > 0:
+            return "discharge"
+        return "hold"
+
+
+@dataclass(frozen=True, slots=True)
+class OptimizedEnergyPlan:
+    """Full-horizon plan composed of native 15-minute allocations."""
+
+    slots: tuple[PlannedEnergySlot, ...]
+    reserve_kwh: Decimal
+    grid_charge_kwh: Decimal
+    solar_charge_kwh: Decimal
+    self_discharge_kwh: Decimal
+    export_discharge_kwh: Decimal
+    charge_cost_eur: Decimal
+    avoided_import_eur: Decimal
+    export_revenue_eur: Decimal
+    operating_cost_eur: Decimal
+    net_value_eur: Decimal
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)

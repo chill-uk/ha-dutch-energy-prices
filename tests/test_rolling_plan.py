@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from custom_components.dutch_energy_prices.models import PricePeriod, PriceSettings
-from custom_components.dutch_energy_prices.rolling_plan import rolling_decision
+from custom_components.dutch_energy_prices.rolling_plan import ActionStabilizer, rolling_decision
 
 
 def periods(prices: list[str]) -> tuple[PricePeriod, ...]:
@@ -116,3 +116,14 @@ def test_no_charging_without_future_peak_and_no_discharge_without_household_use(
 def test_invalid_telemetry_is_not_actionable(soc: Decimal, load: Decimal) -> None:
     prices = periods(["0.40"] + ["0.10"] * 16)
     assert rolling_decision(prices, prices[0].start, soc, load, settings()) is None
+
+
+def test_action_stabilizer_requires_confirmation_and_dwell_time() -> None:
+    start = datetime(2027, 1, 10, 12, tzinfo=UTC)
+    stabilizer = ActionStabilizer(confirmations=2, minimum_dwell=timedelta(minutes=5))
+
+    assert stabilizer.update("hold", start) == "hold"
+    assert stabilizer.update("discharge", start + timedelta(minutes=1)) == "hold"
+    assert stabilizer.update("discharge", start + timedelta(minutes=2)) == "hold"
+    assert stabilizer.update("discharge", start + timedelta(minutes=5)) == "discharge"
+    assert stabilizer.update(None, start + timedelta(minutes=6)) == "discharge"

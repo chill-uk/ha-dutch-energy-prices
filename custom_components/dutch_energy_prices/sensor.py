@@ -32,9 +32,7 @@ from .calculations import (
 from .const import (
     ATTR_PRICES_TODAY,
     ATTR_PRICES_TOMORROW,
-    CONF_BATTERY_SOC_ENTITY,
     CONF_CURRENCY_DISPLAY,
-    CONF_HOUSEHOLD_LOAD_ENTITY,
     CURRENCY_UNITS,
     DOMAIN,
     UNIT_CENT_PER_KWH,
@@ -45,11 +43,14 @@ from .coordinator import DutchEnergyPricesCoordinator
 from .models import (
     BatteryArbitrageOpportunity,
     BatteryEnergyPlan,
+    OptimizedEnergyPlan,
+    PlannedEnergySlot,
     PricePeriod,
     PriceWindow,
     SolarStorageOpportunity,
 )
-from .rolling_plan import RollingDecision, rolling_decision
+from .rolling_plan import ActionStabilizer, RollingDecision, rolling_decision
+from .telemetry import power_kw
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -143,8 +144,27 @@ async def async_setup_entry(
         DutchBatteryPlanWindowSensor(coordinator, entry, "discharge"),
         DutchBatteryPlanValueSensor(coordinator, entry),
     ]
-    if config.get(CONF_BATTERY_SOC_ENTITY) and config.get(CONF_HOUSEHOLD_LOAD_ENTITY):
+    if (
+        coordinator.soc_entity_ids or coordinator.stored_energy_entity_ids
+    ) and coordinator.load_entity_id:
+        entities.extend(
+            [
+                DutchOptimizedPlanMetricSensor(coordinator, entry, "optimized_plan_value"),
+                DutchOptimizedPlanMetricSensor(coordinator, entry, "planned_grid_charge_energy"),
+                DutchOptimizedPlanMetricSensor(coordinator, entry, "planned_solar_charge_energy"),
+                DutchOptimizedPlanMetricSensor(coordinator, entry, "planned_discharge_energy"),
+                DutchOptimizedPlanMetricSensor(coordinator, entry, "battery_reserve_energy"),
+                DutchOptimizedPlanTimeSensor(coordinator, entry, "next_optimized_charge", "charge"),
+                DutchOptimizedPlanTimeSensor(
+                    coordinator, entry, "next_optimized_discharge", "discharge"
+                ),
+            ]
+        )
         entities.append(DutchRollingActionSensor(coordinator, entry))
+    if coordinator.pv_power_entity_id and coordinator.load_entity_id:
+        entities.append(DutchFlexibleLoadSensor(coordinator, entry))
+    if coordinator.controller is not None:
+        entities.append(DutchControlStatusSensor(coordinator, entry))
     async_add_entities(entities)
 
 
@@ -585,23 +605,225 @@ class DutchRollingActionSensor(DutchEnergyBaseSensor):
     def __init__(self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry, "battery_rolling_action")
         self._attr_translation_key = "battery_rolling_action"
+        self._stabilizer = ActionStabilizer(
+            confirmations=coordinator.settings.action_confirmation_updates,
+            minimum_dwell=timedelta(minutes=coordinator.settings.minimum_action_minutes),
+        )
+        self._last_plan: OptimizedEnergyPlan | None = None
+        self._last_slot: PlannedEnergySlot | None = None
+        self._last_proposal_signature: tuple[int, datetime | None, str] | None = None
+
+    def _evaluate(self) -> tuple[OptimizedEnergyPlan | None, PlannedEnergySlot | None]:
+        plan = self.coordinator.optimized_plan()
+        now = dt_util.utcnow()
+        slot = (
+            next((item for item in plan.slots if item.start <= now < item.end), None)
+            if plan is not None
+            else None
+        )
+        proposed = slot.action if slot is not None else "hold"
+        signature = (id(plan), slot.start if slot else None, proposed)
+        if signature != self._last_proposal_signature:
+            self._stabilizer.update(proposed, now)
+            self._last_proposal_signature = signature
+        self._last_plan = plan
+        self._last_slot = slot
+        return plan, slot
 
     @property
     def native_value(self) -> str | None:
-        decision = _rolling_recommendation(self.coordinator)
-        return decision.action if decision else None
+        self._evaluate()
+        return self._stabilizer.action
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        decision = _rolling_recommendation(self.coordinator)
-        if decision is None:
+        plan, slot = self._evaluate()
+        battery = self.coordinator.battery_snapshot()
+        if plan is None or battery is None:
+            return None
+        remaining_hours = (
+            Decimal(str((slot.end - dt_util.utcnow()).total_seconds())) / Decimal("3600")
+            if slot is not None
+            else Decimal("0")
+        )
+        energy = (
+            slot.grid_charge_kwh
+            + slot.solar_charge_kwh
+            + slot.self_discharge_kwh
+            + slot.export_discharge_kwh
+            if slot is not None
+            else Decimal("0")
+        )
+        next_charge = next(
+            (
+                item.start
+                for item in plan.slots
+                if item.start > dt_util.utcnow() and item.action == "charge"
+            ),
+            None,
+        )
+        return {
+            "reason": plan.reason,
+            "raw_action": slot.action if slot else "hold",
+            "action_changed_at": (
+                self._stabilizer.action_since.isoformat() if self._stabilizer.action_since else None
+            ),
+            "pending_action": self._stabilizer.candidate,
+            "pending_confirmations": self._stabilizer.candidate_updates,
+            "reserve_kwh": str(plan.reserve_kwh),
+            "stored_energy_kwh": str(battery.stored_energy_kwh),
+            "available_to_discharge_kwh": str(
+                max(Decimal("0"), battery.stored_energy_kwh - plan.reserve_kwh)
+            ),
+            "next_charge_start": next_charge.isoformat() if next_charge else None,
+            "recommended_power_kw": str(energy / remaining_hours if remaining_hours > 0 else 0),
+            "energy_this_slot_kwh": str(energy),
+            "estimated_value_this_slot_eur": str(slot.value_eur if slot else 0),
+            "forecast_aware": bool(self.coordinator.solar_forecast()),
+            "bank_count": len(battery.banks),
+        }
+
+
+class DutchOptimizedPlanMetricSensor(DutchEnergyBaseSensor):
+    """Expose compact totals from the full-horizon optimiser."""
+
+    def __init__(
+        self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry, key: str
+    ) -> None:
+        super().__init__(coordinator, entry, key)
+        self._attr_translation_key = key
+        self._key = key
+        self._attr_suggested_display_precision = 3
+        self._attr_native_unit_of_measurement = "€" if key == "optimized_plan_value" else "kWh"
+
+    @property
+    def native_value(self) -> Decimal | None:
+        plan = self.coordinator.optimized_plan()
+        if plan is None:
             return None
         return {
-            "reserve_kwh": str(decision.reserve_kwh),
-            "available_to_discharge_kwh": str(decision.available_kwh),
-            "next_charge_start": decision.next_charge_start.isoformat(),
-            "recommended_power_kw": str(decision.recommended_power_kw),
-            "energy_this_slot_kwh": str(decision.slot_energy_kwh),
-            "estimated_value_this_slot_eur": str(decision.estimated_value_eur),
-            "assumes_constant_household_load": True,
+            "optimized_plan_value": plan.net_value_eur,
+            "planned_grid_charge_energy": plan.grid_charge_kwh,
+            "planned_solar_charge_energy": plan.solar_charge_kwh,
+            "planned_discharge_energy": plan.self_discharge_kwh + plan.export_discharge_kwh,
+            "battery_reserve_energy": plan.reserve_kwh,
+        }[self._key]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        plan = self.coordinator.optimized_plan()
+        if plan is None:
+            return None
+        return {
+            "reason": plan.reason,
+            "charge_cost_eur": str(plan.charge_cost_eur),
+            "avoided_import_eur": str(plan.avoided_import_eur),
+            "export_revenue_eur": str(plan.export_revenue_eur),
+            "operating_cost_eur": str(plan.operating_cost_eur),
+            "self_discharge_kwh": str(plan.self_discharge_kwh),
+            "export_discharge_kwh": str(plan.export_discharge_kwh),
+        }
+
+
+class DutchOptimizedPlanTimeSensor(DutchEnergyBaseSensor):
+    """Expose the next charge or discharge slot without a large schedule attribute."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: DutchEnergyPricesCoordinator,
+        entry: ConfigEntry,
+        key: str,
+        kind: Literal["charge", "discharge"],
+    ) -> None:
+        super().__init__(coordinator, entry, key)
+        self._attr_translation_key = key
+        self._kind = kind
+
+    @property
+    def _slot(self) -> PlannedEnergySlot | None:
+        plan = self.coordinator.optimized_plan()
+        if plan is None:
+            return None
+        if self._kind == "charge":
+            return next(
+                (slot for slot in plan.slots if slot.action in ("charge", "solar_charge")), None
+            )
+        return next((slot for slot in plan.slots if slot.action == "discharge"), None)
+
+    @property
+    def native_value(self) -> datetime | None:
+        slot = self._slot
+        return slot.start if slot else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        slot = self._slot
+        if slot is None:
+            return None
+        return {
+            "end": slot.end.isoformat(),
+            "action": slot.action,
+            "grid_charge_kwh": str(slot.grid_charge_kwh),
+            "solar_charge_kwh": str(slot.solar_charge_kwh),
+            "self_discharge_kwh": str(slot.self_discharge_kwh),
+            "export_discharge_kwh": str(slot.export_discharge_kwh),
+            "estimated_value_eur": str(slot.value_eur),
+        }
+
+
+class DutchFlexibleLoadSensor(DutchEnergyBaseSensor):
+    """Recommend when flexible consumption can absorb live PV surplus."""
+
+    def __init__(self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "flexible_load_action")
+        self._attr_translation_key = "flexible_load_action"
+
+    @property
+    def native_value(self) -> str:
+        pv = power_kw(self.coordinator.measurement(self.coordinator.pv_power_entity_id))
+        load = self.coordinator.household_load_kw()
+        surplus = max(Decimal("0"), (pv or Decimal("0")) - load)
+        current = current_period(self.coordinator.data.periods, dt_util.utcnow())
+        if surplus >= Decimal("0.1") and current is not None and current.export_price <= 0:
+            return "run_now"
+        if surplus >= Decimal("0.1"):
+            return "solar_available"
+        return "delay"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        pv = power_kw(self.coordinator.measurement(self.coordinator.pv_power_entity_id)) or Decimal(
+            "0"
+        )
+        load = self.coordinator.household_load_kw()
+        return {
+            "pv_power_kw": str(pv),
+            "household_load_kw": str(load),
+            "estimated_surplus_kw": str(max(Decimal("0"), pv - load)),
+        }
+
+
+class DutchControlStatusSensor(DutchEnergyBaseSensor):
+    """Make optional controller state and its last bounded command visible."""
+
+    def __init__(self, coordinator: DutchEnergyPricesCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry, "battery_control_status")
+        self._attr_translation_key = "battery_control_status"
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.controller.status
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        command = self.coordinator.controller.last_command
+        if command is None:
+            return {"last_command": None}
+        return {
+            "last_command": command.action,
+            "requested_power_kw": str(command.power_kw),
+            "reason": command.reason,
+            "dry_run": self.coordinator.controller.dry_run,
         }

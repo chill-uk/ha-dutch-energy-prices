@@ -1,0 +1,4 @@
+get_plan:
+  name: Get energy plan
+  description: Return the complete non-hold 15-minute optimiser schedule on demand.
+  fields: {}
