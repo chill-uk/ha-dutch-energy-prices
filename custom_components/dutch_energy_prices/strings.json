@@ -72,64 +72,139 @@
   "options": {
     "step": {
       "init": {
-        "title": "Dutch Energy Prices options",
-        "description": "Changing the tax profile loads its default VAT and energy tax in the next step. You can still edit those values before saving.",
-        "data": {
-          "price_source": "Price source",
-          "tax_profile": "Netherlands tax profile"
+        "title": "Settings",
+        "description": "Choose a category to edit. Changes are staged until you select Save changes.",
+        "menu_options": {
+          "price_source": "Price source and display",
+          "taxes": "Taxes and supplier pricing",
+          "vat_rules": "Advanced VAT rules",
+          "battery": "Battery specifications",
+          "battery_entities": "Battery sensors",
+          "solar": "Solar and household energy",
+          "optimization": "Optimisation",
+          "control": "Automatic battery control",
+          "save": "Save changes"
+        },
+        "menu_option_descriptions": {
+          "price_source": "Market-price provider, credentials and display currency.",
+          "taxes": "Dutch tax profile, VAT rate and supplier adjustments.",
+          "vat_rules": "Choose which individual price components include VAT.",
+          "battery": "Capacity, power limits and charging efficiencies.",
+          "battery_entities": "Battery state, health, capacity and power sensors.",
+          "solar": "Household load, grid, PV and solar forecast entities.",
+          "optimization": "Reserve, profit, duration and action-stability settings.",
+          "control": "Optional device control, dry-run and manual override.",
+          "save": "Apply all staged changes and reload the integration."
         }
       },
-      "details": {
-        "title": "Prices, battery and optimisation",
-        "description": "Configure prices, battery entities, forecasts and optional control. Amounts use EUR/kWh. Leave control disabled or in dry-run mode until recommendations have been verified.",
+      "price_source": {
+        "title": "Price source and display",
+        "description": "Choose where market prices come from and how monetary sensor values are displayed.",
+        "data": {
+          "price_source": "Price source",
+          "currency_display": "Currency display"
+        }
+      },
+      "price_source_details": {
+        "title": "Price source details",
+        "description": "Configure the selected market-price source.",
         "data": {
           "source_entity": "Source price entity",
           "source_price_unit": "Source price unit",
-          "entsoe_api_token": "ENTSO-E API token",
+          "entsoe_api_token": "ENTSO-E API token"
+        }
+      },
+      "taxes": {
+        "title": "Taxes and supplier pricing",
+        "description": "Changing the profile loads its default VAT and energy-tax values. You can edit them on the next page.",
+        "data": {
+          "tax_profile": "Netherlands tax profile"
+        }
+      },
+      "tax_details": {
+        "title": "Tax and supplier values",
+        "description": "All amounts are EUR/kWh. The fixed annual tax rebate is intentionally excluded.",
+        "data": {
           "vat_percentage": "VAT percentage",
           "energy_tax": "Energy tax",
           "supplier_import_markup": "Supplier import markup",
-          "supplier_export_adjustment": "Supplier export adjustment",
+          "supplier_export_adjustment": "Supplier export adjustment"
+        }
+      },
+      "vat_rules": {
+        "title": "Advanced VAT rules",
+        "description": "Choose whether VAT applies to each import and export price component.",
+        "data": {
+          "vat_market_import": "Apply VAT to imported market price",
+          "vat_import_markup": "Apply VAT to import markup",
+          "vat_energy_tax": "Apply VAT to energy tax",
+          "vat_market_export": "Apply VAT to exported market price",
+          "vat_export_adjustment": "Apply VAT to export adjustment"
+        }
+      },
+      "battery": {
+        "title": "Battery specifications",
+        "description": "Configure usable capacity, power limits and AC-to-battery-to-AC efficiency.",
+        "data": {
           "battery_round_trip_efficiency": "Battery round-trip efficiency",
           "battery_charge_efficiency": "Charging efficiency",
           "battery_discharge_efficiency": "Discharging efficiency (optional override)",
           "max_charge_power_kw": "Maximum charging power (kW)",
           "max_discharge_power_kw": "Maximum discharge power (kW)",
           "battery_target_energy_kwh": "Energy to optimise (kWh)",
+          "battery_usable_capacity_kwh": "Fallback usable battery capacity (kWh)"
+        }
+      },
+      "battery_entities": {
+        "title": "Battery sensors",
+        "description": "Select entities in the same battery-bank order. Stored energy and capacity take precedence over fallback capacity calculations.",
+        "data": {
           "battery_soc_entities": "Battery level sensors (%) — same order per bank",
           "battery_stored_energy_entities": "Stored-energy sensors — same order per bank",
           "battery_capacity_entities": "Full-capacity sensors — same order per bank",
           "battery_soh_entities": "Battery health sensors (%) — same order per bank",
           "battery_power_entities": "Battery power sensors — same order per bank",
+          "telemetry_stale_minutes": "Retain last valid telemetry (minutes)"
+        }
+      },
+      "solar": {
+        "title": "Solar and household energy",
+        "description": "Add live power and forecast entities so the optimiser can account for household demand and expected solar generation.",
+        "data": {
           "household_load_entity": "Total household consumption power (W or kW)",
           "grid_power_entity": "Grid import/export power (optional)",
           "pv_power_entity": "Total live PV power (optional)",
           "solar_forecast_entities": "Solar forecast entities (optional)",
           "solar_forecast_attribute": "Forecast list attribute (leave blank to detect)",
           "solar_forecast_strategy": "Multiple-forecast strategy",
-          "battery_usable_capacity_kwh": "Fallback usable battery capacity (kWh)",
+          "solar_confidence_percent": "Solar forecast confidence (%)"
+        }
+      },
+      "optimization": {
+        "title": "Optimisation",
+        "description": "Configure reserve planning, profitability and safeguards that prevent rapid action changes.",
+        "data": {
           "battery_min_reserve_percent": "Minimum battery reserve (%)",
           "battery_reserve_buffer_kwh": "Additional reserve buffer (kWh)",
-          "solar_confidence_percent": "Solar forecast confidence (%)",
           "battery_operating_cost": "Battery operating cost (€/kWh discharged)",
           "minimum_profit": "Minimum profit (€/kWh input)",
           "allow_grid_export": "Allow planned battery export",
+          "optimization_duration_minutes": "Optimisation duration",
           "action_confirmation_updates": "Updates required before changing action",
-          "minimum_action_minutes": "Minimum action duration (minutes)",
-          "telemetry_stale_minutes": "Retain last valid telemetry (minutes)",
+          "minimum_action_minutes": "Minimum action duration (minutes)"
+        }
+      },
+      "control": {
+        "title": "Automatic battery control",
+        "description": "Automatic control is optional. Keep it disabled or use dry-run mode until you have verified the plan and entity behaviour.",
+        "data": {
           "control_enabled": "Enable battery control",
           "control_dry_run": "Dry-run control without changing devices",
           "charge_task_entity": "Charging task switch",
           "discharge_task_entity": "Discharging task switch",
           "charge_power_entity": "Charging power-limit number",
           "discharge_power_entity": "Discharging power-limit number",
-          "manual_override_entity": "Manual override input boolean",
-          "optimization_duration_minutes": "Optimisation duration",
-          "vat_market_import": "Apply VAT to imported market price",
-          "vat_import_markup": "Apply VAT to import markup",
-          "vat_energy_tax": "Apply VAT to energy tax",
-          "vat_market_export": "Apply VAT to exported market price",
-          "vat_export_adjustment": "Apply VAT to export adjustment"
+          "manual_override_entity": "Manual override input boolean"
         }
       }
     }
